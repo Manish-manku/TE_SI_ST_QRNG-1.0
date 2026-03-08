@@ -41,7 +41,10 @@
    - [Experiment 6 — NIST SP 800-22 Full Validation](#experiment-6--nist-sp-800-22-full-validation)
 10. [Performance Optimizations](#performance-optimizations)
 11. [Installation & Usage](#installation--usage)
-12. [References](#references)
+12. [Applications](#applications)
+13. [Conclusion](#conclusion)
+14. [Future Work](#future-work)
+15. [References](#references)
 
 ---
 
@@ -152,7 +155,7 @@ The `TrustVector` dataclass carries four independent ε parameters:
 
 | Component | Physical Meaning | Measurement Method |
 |-----------|-----------------|-------------------|
-| `ε_bias` | Deviation from output uniformity | `|mean − 0.5|` directly observed |
+| `ε_bias` | Deviation from output uniformity | Frequency monobit test: `ε_bias = sigmoid(\|mean(bits) − 0.5\|, k=20, x₀=0.1)` — the absolute departure of the observed bit mean from 0.5, mapped through a calibrated sigmoid so that a perfectly balanced source gives ε_bias ≈ 0.03 and a maximally biased source approaches 1.0 |
 | `ε_drift` | Temporal instability of source | Two-sided CUSUM control chart |
 | `ε_corr` | Memory / autocorrelation effects | FFT autocorrelation + Santha-Vazirani test |
 | `ε_leak` | Side-channel leakage indicator | Quantum witness + energy constraint tests |
@@ -179,26 +182,26 @@ If `trust_score < 0.2` (the HALT threshold), a `DiagnosticHaltError` is raised a
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                        TE-SI-QRNG System                         │
-│                                                                  │
+│                        TE-SI-QRNG System                          │
+│                                                                    │
 │  ┌──────────────┐    raw bits     ┌──────────────────────────┐   │
 │  │ Quantum Source│ ─────────────► │   BB84 Round Splitter    │   │
 │  │  Simulator   │    + bases      │  (generation / test)     │   │
 │  └──────────────┘    + signal     └──────┬──────────┬────────┘   │
-│                                          │          │            │
+│                                          │          │             │
 │                                   gen bits      test bits        │
-│                                          │          │            │
-│                              ┌───────────▼──┐  ┌───▼──────────┐  │
-│                              │  Randomness  │  │  Entropy     │  │
-│                              │  Extractor   │  │  Estimator   │  │
-│                              │ (Toeplitz/   │  │  (Hoeffding  │  │
-│                              │  FFT)        │  │   + EAT)     │  │
-│                              └──────┬───────┘  └───┬──────────┘  │
+│                                          │          │             │
+│                              ┌───────────▼──┐  ┌───▼──────────┐ │
+│                              │  Randomness  │  │  Entropy     │ │
+│                              │  Extractor   │  │  Estimator   │ │
+│                              │ (Toeplitz/   │  │  (Hoeffding  │ │
+│                              │  FFT)        │  │   + EAT)     │ │
+│                              └──────┬───────┘  └───┬──────────┘ │
 │                                     │              │             │
 │                                     │    h_min_certified         │
-│                              ┌──────▼───────────────▼─────────┐  │
-│                              │      LHL Output Length k       │  │
-│                              │   k = n·h_min − 2·log₂(1/ε)    │  │
+│                              ┌──────▼───────────────▼─────────┐ │
+│                              │      LHL Output Length k        │ │
+│                              │   k = n·h_min − 2·log₂(1/ε)    │ │
 │                              └──────────────┬──────────────────┘ │
 │                                             │                    │
 │   ┌─────────────────────────────────────┐   │  certified output  │
@@ -708,6 +711,95 @@ python experiment_6_nist_validation.py
 ```
 
 Without this, the pure-Python NIST implementation is used automatically.
+
+---
+
+## Applications
+
+TE-SI-QRNG sits at a practical and commercially viable point on the security spectrum — stronger than classical HRNGs, deployable without the laboratory requirements of full device-independent QRNGs. This positions it for a broad set of high-assurance applications.
+
+### Cryptographic Key Generation
+
+The primary application is generating cryptographic keying material for symmetric encryption (AES-256), asymmetric protocols (RSA, ECC key generation), and session key derivation. The EAT-certified `H_min(X|E)` bound guarantees that no polynomial-time quantum adversary with side information `E` can predict the output with probability better than `2^{−H_min}`. This is the strongest composable security guarantee achievable in the SI model and meets the requirements of NIST SP 800-133 (key generation guidelines).
+
+### Post-Quantum Cryptography (PQC) Seeding
+
+The NIST PQC standard algorithms (CRYSTALS-Kyber, CRYSTALS-Dilithium, FALCON, SPHINCS+) all depend critically on high-quality randomness during key generation. A compromised random source — even slightly biased — can catastrophically weaken lattice and hash-based keys. TE-SI-QRNG's certified bounds provide the provable entropy guarantees these algorithms require, making it a natural entropy source for PQC deployments.
+
+### Quantum Key Distribution (QKD) Networks
+
+In BB84 and related QKD protocols, the random basis choices made by Alice and Bob must be unpredictable to any eavesdropper. A side-channel-leaking or drifting random source can break the security proof even if the quantum channel is perfect. TE-SI-QRNG's `ε_leak` diagnostic and CUSUM drift monitor are specifically designed to detect and respond to exactly these failure modes, making it directly applicable as the basis-choice generator in deployed QKD systems.
+
+### Monte Carlo Simulation & Scientific Computing
+
+High-dimensional Monte Carlo integration (financial risk modelling, drug discovery, particle physics simulation) is sensitive to low-dimensional projections of the random sequence — precisely what the Santha-Vazirani and autocorrelation tests probe. The certified min-entropy bound and NIST SP 800-22 compliance ensure the statistical properties required for unbiased Monte Carlo estimators, even when the underlying quantum source has mild imperfections.
+
+### Hardware Security Modules (HSMs) & Secure Enclaves
+
+Enterprise HSMs (e.g., for PKI certificate authorities, payment processing, and government secrets) require entropy sources with continuous health monitoring and auditable certification. The TE-SI-QRNG architecture maps naturally onto this requirement: the TrustVector produces a continuously logged health signal, DiagnosticHaltError implements automatic shutdown on anomaly detection, and the EAT metadata provides a complete, auditable entropy accounting trail per block.
+
+### Randomised Algorithms & Zero-Knowledge Proofs
+
+Interactive proof systems, zero-knowledge protocols (zk-SNARKs, zk-STARKs), and randomised algorithms in distributed computing require challenge bits that an adversary cannot predict. The composable security of TE-SI-QRNG — specifically the trace-distance bound `‖ρ_RE − U_R ⊗ ρ_E‖₁ ≤ ε_total` — is precisely the property required for these bits to be usable as verifier challenges in the composable security framework.
+
+### Quantum Computing Variational Algorithms
+
+Variational Quantum Eigensolvers (VQE) and Quantum Approximate Optimisation Algorithms (QAOA) require high-quality random initial parameter vectors and randomised measurement sampling strategies. TE-SI-QRNG can serve as the certified entropy source for these algorithms, with the trust diagnostics providing a real-time health signal for the quantum hardware generating the randomness.
+
+---
+
+## Conclusion
+
+This project demonstrates that **provably secure, operationally practical quantum randomness** is achievable without full device-independence. The TE-SI-QRNG architecture establishes three results of independent interest:
+
+**1. Strict separation of certification and diagnostics.** The system enforces a hard architectural boundary between the certified entropy path (Hoeffding + EAT + LHL — all information-theoretically grounded) and the trust diagnostic path (sigmoid-mapped TrustVector — operationally useful but cryptographically inert). This separation is not merely a design choice; it is a security requirement. Any coupling between diagnostics and the certified entropy formula would create an adversarially exploitable channel. The code enforces this via documented invariants and explicit commentary at every point where the boundary could be violated.
+
+**2. Calibrated, gradient trust signals replace binary alarms.** The v7 sigmoid upgrade converts all trust measurements from clipped `min(x, 1)` saturating signals into smooth, calibrated gradients that remain informative across the full operating range. This eliminates the "wall of yellow" failure mode observed in earlier versions — where nearly all test statistics saturated at ε=1.0 before any true alarm condition existed — and produces trust vectors that meaningfully differentiate between mildly degraded and severely compromised operating conditions.
+
+**3. Algorithmic scalability for practical deployment.** The v5 optimisations bring all core operations into complexity classes that scale to production bit rates: O(n) for SV testing, O(n log n) for Toeplitz extraction and autocorrelation, fully vectorised runs testing. Combined with `ProcessPoolExecutor` parallelism across experiments, the system can characterise sources and generate certified bits at rates compatible with real cryptographic workloads on standard hardware.
+
+The NIST SP 800-22 validation (Experiment 6) confirms that the extracted output is statistically indistinguishable from ideal uniform randomness across all 15 tests and all source scenarios — including sources under active adversarial attack — demonstrating that the Toeplitz extractor is functioning correctly as a privacy amplification step.
+
+Together, these contributions position TE-SI-QRNG as a principled, production-relevant design for certified quantum randomness: more deployable than DI-QRNG, more secure and transparent than classical HRNGs, and more operationally aware than bare SI-QRNG.
+
+---
+
+## Future Work
+
+### 1. Real Hardware Integration
+
+The current implementation is fully validated on simulated sources. The immediate next step is integration with physical QRNG hardware — specifically optical continuous-variable (CV-QRNG) and single-photon discrete-variable (DV-QRNG) platforms. This requires:
+- A hardware abstraction layer replacing `QuantumSourceSimulator` with a real ADC/TDC interface
+- Calibration of the CUSUM warm-up period against measured device stability
+- Validation that the `PhysicalDriftMonitor` parameters (`k=0.5σ`, `h=4.0σ`) match the actual noise statistics of the hardware
+
+### 2. Measurement-Device-Independent (MDI) Extension
+
+The current protocol trusts the detector. A natural extension is to remove this assumption using measurement-device-independent (MDI) techniques, where an untrusted central node performs Bell measurements and the randomness is certified purely from the correlations. This would achieve full device-independence for the detection side while retaining the operational advantages of the SI model for the source.
+
+### 3. Real-Time Streaming API
+
+The current architecture processes bits in discrete blocks. A streaming mode — where the EAT accumulator, CUSUM monitor, and extractor all update continuously as bits arrive — would enable integration with real-time cryptographic applications (e.g., a `/dev/qrandom` kernel device driver or a PKCS#11 token interface). Key challenges include thread-safe state management and defining the correct streaming analogue of the per-block EAT bound.
+
+### 4. Adaptive Block Sizing
+
+Currently, `block_size` is a fixed constructor parameter. An adaptive scheme — increasing block size when the source is stable (maximising extraction efficiency) and decreasing it when drift is detected (minimising latency of the certification loop) — would improve both throughput and responsiveness. The CUSUM drift score is a natural control signal for this adaptation.
+
+### 5. Composable Security Proof for the Full TrustVector
+
+The current trust diagnostics are operationally motivated but their relationship to the formal composable security parameter `ε_total` is not fully formalised. A rigorous reduction — showing that the four trust components (ε_bias, ε_drift, ε_corr, ε_leak) can be incorporated into a unified composable security statement — would elevate the system from "operationally safe" to "formally proven safe." This is an open theoretical problem connecting quantum information theory with classical statistical process control.
+
+### 6. Post-Quantum Extractor Hardening
+
+The Toeplitz extractor relies on a publicly known seed. In the classical random oracle model this is secure, but in a quantum adversary model with side information the extractor seed must itself be certified random and secret. Future work should incorporate a quantum-secure seeded extractor (e.g., based on quantum-proof strong extractors from Hayashi & Tsurumaru 2016) and explore seed recycling protocols to reduce per-extraction overhead.
+
+### 7. Federated Multi-Source Entropy Pooling
+
+For deployments where no single quantum source meets the required bit rate, entropy from multiple independent TE-SI-QRNG instances could be combined via an XOR-based entropy pool (secure by the independent-sources theorem) or a more sophisticated protocol that certifies the combined pool's min-entropy from the individual bounds. This is directly relevant to cloud and data-centre deployments where many low-rate quantum sources are easier to deploy than a single high-rate device.
+
+### 8. Side-Channel Leakage Quantification
+
+The current `ε_leak` component is computed from quantum witness tests and energy constraints — proxies for leakage rather than direct measurements. Future work should develop tighter, operationally measurable side-channel bounds, potentially using electromagnetic emission measurements, power traces, or timing side-channels on the detector hardware as direct inputs to the leakage estimator.
 
 ---
 
