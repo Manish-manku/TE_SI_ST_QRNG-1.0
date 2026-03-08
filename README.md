@@ -179,26 +179,26 @@ If `trust_score < 0.2` (the HALT threshold), a `DiagnosticHaltError` is raised a
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                        TE-SI-QRNG System                          │
-│                                                                    │
+│                        TE-SI-QRNG System                         │
+│                                                                  │
 │  ┌──────────────┐    raw bits     ┌──────────────────────────┐   │
 │  │ Quantum Source│ ─────────────► │   BB84 Round Splitter    │   │
 │  │  Simulator   │    + bases      │  (generation / test)     │   │
 │  └──────────────┘    + signal     └──────┬──────────┬────────┘   │
-│                                          │          │             │
+│                                          │          │            │
 │                                   gen bits      test bits        │
-│                                          │          │             │
-│                              ┌───────────▼──┐  ┌───▼──────────┐ │
-│                              │  Randomness  │  │  Entropy     │ │
-│                              │  Extractor   │  │  Estimator   │ │
-│                              │ (Toeplitz/   │  │  (Hoeffding  │ │
-│                              │  FFT)        │  │   + EAT)     │ │
-│                              └──────┬───────┘  └───┬──────────┘ │
+│                                          │          │            │
+│                              ┌───────────▼──┐  ┌───▼──────────┐  │
+│                              │  Randomness  │  │  Entropy     │  │
+│                              │  Extractor   │  │  Estimator   │  │
+│                              │ (Toeplitz/   │  │  (Hoeffding  │  │
+│                              │  FFT)        │  │   + EAT)     │  │
+│                              └──────┬───────┘  └───┬──────────┘  │
 │                                     │              │             │
 │                                     │    h_min_certified         │
-│                              ┌──────▼───────────────▼─────────┐ │
-│                              │      LHL Output Length k        │ │
-│                              │   k = n·h_min − 2·log₂(1/ε)    │ │
+│                              ┌──────▼───────────────▼─────────┐  │
+│                              │      LHL Output Length k       │  │
+│                              │   k = n·h_min − 2·log₂(1/ε)    │  │
 │                              └──────────────┬──────────────────┘ │
 │                                             │                    │
 │   ┌─────────────────────────────────────┐   │  certified output  │
