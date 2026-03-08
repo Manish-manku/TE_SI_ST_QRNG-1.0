@@ -182,27 +182,27 @@ If `trust_score < 0.2` (the HALT threshold), a `DiagnosticHaltError` is raised a
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                        TE-SI-QRNG System                          │
-│                                                                    │
+│                        TE-SI-QRNG System                         │
+│                                                                  │
 │  ┌──────────────┐    raw bits     ┌──────────────────────────┐   │
-│  │ Quantum Source│ ─────────────► │   BB84 Round Splitter    │   │
+│  │Quantum Source│ ─────────────► │   BB84 Round Splitter    │   │
 │  │  Simulator   │    + bases      │  (generation / test)     │   │
 │  └──────────────┘    + signal     └──────┬──────────┬────────┘   │
-│                                          │          │             │
+│                                          │          │            │
 │                                   gen bits      test bits        │
-│                                          │          │             │
-│                              ┌───────────▼──┐  ┌───▼──────────┐ │
-│                              │  Randomness  │  │  Entropy     │ │
-│                              │  Extractor   │  │  Estimator   │ │
-│                              │ (Toeplitz/   │  │  (Hoeffding  │ │
-│                              │  FFT)        │  │   + EAT)     │ │
-│                              └──────┬───────┘  └───┬──────────┘ │
+│                                          │          │            │
+│                              ┌───────────▼──┐  ┌───▼──────────┐  │
+│                              │  Randomness  │  │  Entropy     │  │
+│                              │  Extractor   │  │  Estimator   │  │
+│                              │ (Toeplitz/   │  │  (Hoeffding  │  │
+│                              │  FFT)        │  │   + EAT)     │  │
+│                              └──────┬───────┘  └───┬──────────┘  │
 │                                     │              │             │
 │                                     │    h_min_certified         │
-│                              ┌──────▼───────────────▼─────────┐ │
-│                              │      LHL Output Length k        │ │
-│                              │   k = n·h_min − 2·log₂(1/ε)    │ │
-│                              └──────────────┬──────────────────┘ │
+│                              ┌──────▼───────────────▼─────────┐  │
+│                              │      LHL Output Length k       │  │
+│                              │   k = n·h_min − 2·log₂(1/ε)    │  │
+│                              └──────────────┬─────────────────┘  │
 │                                             │                    │
 │   ┌─────────────────────────────────────┐   │  certified output  │
 │   │       Trust Diagnostic Layer        │   │  (k uniform bits)  │
@@ -550,16 +550,16 @@ These invariants are enforced in the code and must never be violated in any modi
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  INVARIANT 1:  h_min_certified ← p_max_upper ONLY                  │
+│  INVARIANT 1:  h_min_certified ← p_max_upper ONLY                   │
 │                Cannot be touched by trust diagnostics               │
 │                                                                     │
-│  INVARIANT 2:  extraction_rate ← LHL(n_gen, h_min_certified) ONLY  │
+│  INVARIANT 2:  extraction_rate ← LHL(n_gen, h_min_certified) ONLY   │
 │                Cannot be scaled by trust_score                      │
 │                                                                     │
 │  INVARIANT 3:  trust_score → warn / halt ONLY                       │
 │                Forbidden from entering any entropy computation      │
 │                                                                     │
-│  INVARIANT 4:  EAT: Δ_EAT = 2·√t·√(ln(1/ε_EAT))                   │
+│  INVARIANT 4:  EAT: Δ_EAT = 2·√t·√(ln(1/ε_EAT))                     │
 │                Fixed formula, not a configurable parameter          │
 └─────────────────────────────────────────────────────────────────────┘
 ```
