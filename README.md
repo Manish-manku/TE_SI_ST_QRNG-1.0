@@ -185,7 +185,7 @@ If `trust_score < 0.2` (the HALT threshold), a `DiagnosticHaltError` is raised a
 │                        TE-SI-QRNG System                         │
 │                                                                  │
 │  ┌──────────────┐    raw bits     ┌──────────────────────────┐   │
-│  │Quantum Source│ ─────────────► │   BB84 Round Splitter    │   │
+│  │Quantum Source│ ─────────────► │   BB84 Round Splitter     │   │
 │  │  Simulator   │    + bases      │  (generation / test)     │   │
 │  └──────────────┘    + signal     └──────┬──────────┬────────┘   │
 │                                          │          │            │
