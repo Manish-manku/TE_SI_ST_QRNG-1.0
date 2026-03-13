@@ -410,7 +410,7 @@ class ExperimentRunner:
     # Experiment 5  (sequential by design — time-series, block-to-block state)
     # ------------------------------------------------------------------
 
-    def experiment_5_temporal_adaptation(self, n_blocks: int = 20):
+    def experiment_5_temporal_adaptation(self, n_blocks: int = 150):
         print("\n" + "=" * 80)
         print("EXPERIMENT 5: Temporal Adaptation to Source Degradation")
         print("=" * 80)
