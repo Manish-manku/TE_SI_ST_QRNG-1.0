@@ -158,7 +158,7 @@ The `TrustVector` dataclass carries four independent ε parameters:
 | `ε_bias` | Deviation from output uniformity | Frequency monobit test: `ε_bias = sigmoid(\|mean(bits) − 0.5\|, k=20, x₀=0.1)` — the absolute departure of the observed bit mean from 0.5, mapped through a calibrated sigmoid so that a perfectly balanced source gives ε_bias ≈ 0.03 and a maximally biased source approaches 1.0 |
 | `ε_drift` | Temporal instability of source | Two-sided CUSUM control chart |
 | `ε_corr` | Memory / autocorrelation effects | FFT autocorrelation + Santha-Vazirani test |
-| `ε_leak` | Side-channel leakage indicator | Quantum witness + energy constraint tests |
+| `ε_leak` | Side-channel leakage indicator | Quantum witness + energy-constraint deviation score (sigmoid-mapped) |
 
 Each raw test statistic is mapped to `[0,1]` via a **calibrated sigmoid**:
 
@@ -175,6 +175,8 @@ trust_score  =  1.0  −  √(ε_bias² + ε_drift² + ε_corr² + ε_leak²) / 
 ```
 
 If `trust_score < 0.2` (the HALT threshold), a `DiagnosticHaltError` is raised and extraction is aborted. If `trust_score < 0.5` (the WARN threshold), a warning is added to metadata but generation continues. **Under no circumstance does trust_score modify the certified entropy formula.**
+
+Energy-constraint diagnostics have both **continuous** and **discrete** effects: the measured deviation score feeds `ε_leak` (and therefore `trust_score`) through the same sigmoid framework as other trust components, and a failed pass/fail energy check can also trigger an explicit warning or halt policy decision. This ensures energy anomalies are never computed and ignored, while preserving the security invariant that diagnostics never alter `h_min_certified` or extractor output length.
 
 ---
 
