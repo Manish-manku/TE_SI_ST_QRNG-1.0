@@ -66,6 +66,13 @@ from New_simulator_v9 import (
 from nist_runner_v3 import NISTTestRunner, NISTResult, TEST_NAMES, N_TESTS
 
 
+def _iter_chunks(bits, chunk_size: int = 1_000_000):
+    """Yield contiguous, non-copying chunks from a bit sequence."""
+    arr = np.asarray(bits, dtype=np.uint8)
+    for i in range(0, arr.size, chunk_size):
+        yield arr[i:i + chunk_size]
+
+
 # ---------------------------------------------------------------------------
 # Parallel worker functions (top-level for pickling)
 # ---------------------------------------------------------------------------
@@ -107,7 +114,7 @@ def _worker_post_extraction(args) -> Tuple[str, Dict]:
     runner = NISTTestRunner(significance=0.01)
 
     if len(output_bits) >= 1000:
-        nist_result = runner.run_all(output_bits[:n_bits])
+        nist_result = runner.run_all_chunked(_iter_chunks(output_bits), total_bits=len(output_bits))
     else:
         nist_result = NISTResult(
             p_values=[None] * N_TESTS,
@@ -136,7 +143,7 @@ def _worker_pre_extraction(args) -> Tuple[str, Dict]:
     raw_bits = block.bits[:n_bits]
 
     runner      = NISTTestRunner(significance=0.01)
-    nist_result = runner.run_all(raw_bits)
+    nist_result = runner.run_all_chunked(_iter_chunks(raw_bits), total_bits=len(raw_bits))
 
     return scenario_name, {
         "p_values":  nist_result.p_values,
@@ -185,8 +192,8 @@ def _worker_attack_sweep(args) -> Tuple[float, Dict]:
 
     runner = NISTTestRunner(significance=0.01)
 
-    raw_result = runner.run_all(raw_bits)
-    ext_result = (runner.run_all(output_bits[:n_bits])
+    raw_result = runner.run_all_chunked(_iter_chunks(raw_bits), total_bits=len(raw_bits))
+    ext_result = (runner.run_all_chunked(_iter_chunks(output_bits), total_bits=len(output_bits))
                   if len(output_bits) >= 1000
                   else NISTResult(p_values=[None]*N_TESTS, passed=[None]*N_TESTS, n_bits=0))
 
