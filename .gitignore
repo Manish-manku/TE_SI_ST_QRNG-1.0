@@ -11,3 +11,13 @@ venv/
 
 # Logs
 *.log
+# Ignore specific unwanted files only
+run_experiment.py
+validate_pipeline.py
+config.py
+# Ignore batch scripts
+*.bat
+
+# Keep README but ignore others
+*.md
+!README.md

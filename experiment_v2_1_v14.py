@@ -49,6 +49,7 @@ import tempfile
 import math
 
 # Import v16 core (A5 fixed: QRNGSessionState + CertifiedGenerationSession)
+from config import DEFAULT_N_BITS, DEFAULT_BLOCK_SIZE
 from D_v16 import TrustEnhancedQRNG, TrustVector, QRNGSessionState, EATConvergenceWarning, InsufficientEntropyError
 
 from New_simulator_v9 import (
@@ -108,7 +109,7 @@ def _run_exp1_scenario(args) -> Tuple[str, Dict]:
     scenario_name, params, n_bits = args
     try:
         source = QuantumSourceSimulator(params, seed=42)
-        te_qrng = TrustEnhancedQRNG(block_size=10000000)
+        te_qrng = TrustEnhancedQRNG(block_size=DEFAULT_BLOCK_SIZE)
 
         block = source.generate_block(n_bits)
         test_mask   = (block.bases == 1)
@@ -148,7 +149,7 @@ def _run_exp1_side_channel_scenario(args) -> Tuple[str, Dict]:
             n_bits, injection_strength=injection_strength
         )
 
-        te_qrng = TrustEnhancedQRNG(block_size=10000000)
+        te_qrng = TrustEnhancedQRNG(block_size=DEFAULT_BLOCK_SIZE)
         tv = te_qrng.run_self_tests(
             block.bits, block.bases, block.raw_signal,
             signal_stats=(0.0, 1.0),
@@ -173,7 +174,7 @@ def _run_exp2_scenario(args) -> Tuple[str, Dict]:
     """Worker: experiment 2 — single scenario."""
     scenario_name, params, n_bits = args
     source  = QuantumSourceSimulator(params, seed=42)
-    te_qrng = TrustEnhancedQRNG(block_size=1000000)
+    te_qrng = TrustEnhancedQRNG(block_size=DEFAULT_BLOCK_SIZE)
 
     try:
         output_bits, metadata_list = te_qrng.generate_certified_random_bits(
@@ -244,7 +245,7 @@ def _run_exp3_scenario(args) -> Tuple[str, List]:
     scenario_name, params, n_bits = args
     try:
         source  = QuantumSourceSimulator(params, seed=42)
-        te_qrng = TrustEnhancedQRNG(block_size=1000000)
+        te_qrng = TrustEnhancedQRNG(block_size=DEFAULT_BLOCK_SIZE)
 
         try:
             output_bits, metadata_list = te_qrng.generate_certified_random_bits(
@@ -281,7 +282,7 @@ def _run_exp4_scenario(args) -> Tuple[str, Dict]:
     scenario_name, params, n_bits = args
 
     source  = QuantumSourceSimulator(params, seed=42)
-    te_qrng = TrustEnhancedQRNG(block_size=1000000, extractor_efficiency=0.9)
+    te_qrng = TrustEnhancedQRNG(block_size=DEFAULT_BLOCK_SIZE, extractor_efficiency=0.9)
 
     try:
         te_output, te_metadata = te_qrng.generate_certified_random_bits(
@@ -297,7 +298,7 @@ def _run_exp4_scenario(args) -> Tuple[str, Dict]:
         te_output, te_metadata = np.array([], dtype=np.uint8), [{}]
 
     source.reset()
-    si_qrng = StandardSIQRNG(block_size=1000000, extractor_efficiency=0.95)
+    si_qrng = StandardSIQRNG(block_size=DEFAULT_BLOCK_SIZE, extractor_efficiency=0.95)
 
     try:
         si_output, si_metadata = si_qrng.generate_certified_random_bits(
@@ -1074,7 +1075,7 @@ class ExperimentRunner:
                   f"ε_drift={tv['epsilon_drift']:.4f}  "
                   f"ε_leak={tv['epsilon_leak']:.4f}")
 
-    def experiment_1_trust_quantification(self, n_bits: int = 1000000):
+    def experiment_1_trust_quantification(self, n_bits: int = DEFAULT_N_BITS):
         """Experiment 1: Trust Quantification Across 13 Scenarios."""
         print("\n" + "=" * 80)
         print("EXPERIMENT 1: Trust Quantification Across Scenarios  [PARALLEL + inline]")
@@ -1098,7 +1099,7 @@ class ExperimentRunner:
 
         nist_results: Dict = {}
         if _NIST_AVAILABLE:
-            task_args_nist = [(name, params, min(n_bits, 1_000_000))
+            task_args_nist = [(name, params, min(n_bits, DEFAULT_N_BITS))
                               for name, params in scenarios.items()]
             nist_results = self._dispatch_scenarios(_worker_post_extraction, task_args_nist)
 
@@ -1119,7 +1120,7 @@ class ExperimentRunner:
             for sc_name, sc_result in nist_results.items():
                 print(f"    NIST [{sc_name}]  pass_rate={sc_result['pass_rate']:.1%}")
 
-    def experiment_2_entropy_certification(self, n_bits: int = 1000000):
+    def experiment_2_entropy_certification(self, n_bits: int = DEFAULT_N_BITS):
         """Experiment 2: Entropy Certification vs Output Uniformity."""
         print("\n" + "=" * 80)
         print("EXPERIMENT 2: Entropy Certification vs Output Uniformity  [PARALLEL]")
@@ -1165,7 +1166,7 @@ class ExperimentRunner:
                       f"H_total={b['h_total_eat']:.4f}  "
                       f"Rate={b['extraction_rate']:.4f}")
 
-    def experiment_3_attack_detection(self, n_bits: int = 3500000):
+    def experiment_3_attack_detection(self, n_bits: int = DEFAULT_N_BITS):
         """Experiment 3: Attack Detection Capability."""
         print("\n" + "=" * 80)
         print("EXPERIMENT 3: Attack Detection Capability  [PARALLEL]")
@@ -1194,7 +1195,7 @@ class ExperimentRunner:
                   f"SI={result['si_output_bits']} bits "
                   f"quality={result['si_quality_score']:.4f}")
 
-    def experiment_4_comparison_with_si_qrng(self, n_bits: int = 3500000):
+    def experiment_4_comparison_with_si_qrng(self, n_bits: int = DEFAULT_N_BITS):
         """Experiment 4: Comparison with Standard SI-QRNG."""
         print("\n" + "=" * 80)
         print("EXPERIMENT 4: Comparison with Standard SI-QRNG  [PARALLEL]")
@@ -1210,7 +1211,7 @@ class ExperimentRunner:
     # Experiment 4b
     # ------------------------------------------------------------------
 
-    def _compute_experiment_4b(self, n_bits: int = 1_000_000) -> Dict:
+    def _compute_experiment_4b(self, n_bits: int = DEFAULT_N_BITS) -> Dict:
         """Pure compute: sweep bias levels, record TE vs SI extraction rates."""
         bias_levels = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45]
         task_args   = [(bias, n_bits) for bias in bias_levels]
@@ -1240,7 +1241,7 @@ class ExperimentRunner:
                   f"{r['te_extraction_rate']:>8.4f}  {r['si_extraction_rate']:>8.4f}  "
                   f"{r['divergence']:>10.4f}  {r['te_trust_score']:>7.4f}")
 
-    def experiment_4b_security_degradation(self, n_bits: int = 1_000_000):
+    def experiment_4b_security_degradation(self, n_bits: int = DEFAULT_N_BITS):
         """Experiment 4b: Security Degradation on a Progressively Biased Source."""
         print("\n" + "=" * 80)
         print("EXPERIMENT 4b: Security Degradation — TE-SI-QRNG vs Standard SI-QRNG")
@@ -1270,7 +1271,7 @@ class ExperimentRunner:
             'source_quality':  [],
         }
 
-        te_qrng = TrustEnhancedQRNG(block_size=1000000)
+        te_qrng = TrustEnhancedQRNG(block_size=DEFAULT_BLOCK_SIZE)
         exp5_bits_path = self.output_dir / "data" / "experiment_5_temporal_adaptation_output_bits.bin"
         exp5_meta_path = self.output_dir / "data" / "experiment_5_temporal_adaptation_blocks.jsonl"
 
@@ -1299,7 +1300,7 @@ class ExperimentRunner:
             params         = BiasedParams(bias=bias)
             source         = QuantumSourceSimulator(params, seed=42 + block_idx)
 
-            block  = source.generate_block(1000000)
+            block  = source.generate_block(n_bits)
             # B5 FIX: pass signal_stats so energy_constraint_test uses correct baseline
             _sig_stats = source.get_signal_stats()
             try:
@@ -1490,7 +1491,7 @@ class ExperimentRunner:
             print(f"  μ={mu:.3f}  τ*={tau_s:.3f}  yield={yield_s:.3f}  "
                   f"ε_emp={eps_emp:.4f}  ε_bound={eps_bound:.4f}")
 
-    def experiment_7_gating_validation(self, n_bits: int = 200_000):
+    def experiment_7_gating_validation(self, n_bits: int = DEFAULT_N_BITS):
         """Experiment 7: Adaptive Pre-Value Gating Validation."""
         print("\n" + "=" * 80)
         print("EXPERIMENT 7: Adaptive Pre-Value Gating Validation  [v9]")

@@ -56,6 +56,7 @@ import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 import numpy as np
 
+from config import DEFAULT_N_BITS, DEFAULT_BLOCK_SIZE
 from D_v16 import TrustEnhancedQRNG, EATConvergenceWarning, InsufficientEntropyError
 from New_simulator_v9 import (
     QuantumSourceSimulator,
@@ -86,7 +87,7 @@ def _worker_post_extraction(args) -> Tuple[str, Dict]:
     scenario_name, params, n_bits = args
 
     source  = QuantumSourceSimulator(params, seed=42)
-    te_qrng = TrustEnhancedQRNG(block_size=500_000)
+    te_qrng = TrustEnhancedQRNG(block_size=DEFAULT_BLOCK_SIZE)
 
     try:
         output_bits, metadata_list = te_qrng.generate_certified_random_bits(
@@ -164,7 +165,7 @@ def _worker_attack_sweep(args) -> Tuple[float, Dict]:
 
     params  = AttackedParams(attack_strength=attack_strength)
     source  = QuantumSourceSimulator(params, seed=42)
-    te_qrng = TrustEnhancedQRNG(block_size=1_000_000)
+    te_qrng = TrustEnhancedQRNG(block_size=DEFAULT_BLOCK_SIZE)
 
     raw_block = source.generate_block(n_bits)
     raw_bits  = raw_block.bits[:n_bits]
@@ -551,7 +552,7 @@ class NISTExperimentRunner:
 
     def __init__(self,
                  output_dir:  str = "results",
-                 n_bits:      int = 1_000_000,
+                 n_bits:      int = DEFAULT_N_BITS,
                  max_workers: Optional[int] = None):
         self.output_dir  = Path(output_dir)
         self.n_bits      = n_bits

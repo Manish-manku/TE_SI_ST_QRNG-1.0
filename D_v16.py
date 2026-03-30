@@ -113,6 +113,7 @@ try:
     from typing import TypedDict
 except ImportError:          # Python < 3.8 fallback
     from typing_extensions import TypedDict
+from config import DEFAULT_N_BITS, DEFAULT_BLOCK_SIZE
 import hashlib
 from collections import deque
 import json
@@ -1082,6 +1083,10 @@ class CertifiedGenerationSession:
                 f"got {n_bits!r}."
             )
 
+        # Validate configuration per requirements
+        if self.te_qrng.block_size > n_bits:
+            raise ValueError("block_size must be <= n_bits")
+
         # Create a fresh session state for this run
         session = QRNGSessionState()
 
@@ -1261,9 +1266,12 @@ class TrustEnhancedQRNG:
     """
 
     def __init__(self,
-                 block_size:           int   = 1000,
+                 block_size:           int   = DEFAULT_BLOCK_SIZE,
                  security_parameter:   float = 1e-6,
                  extractor_efficiency: float = 0.9):
+        if block_size > DEFAULT_N_BITS:
+            raise ValueError("block_size must be <= n_bits")
+
         self.block_size           = block_size
         self.security_parameter   = security_parameter
         self.extractor_efficiency = extractor_efficiency
