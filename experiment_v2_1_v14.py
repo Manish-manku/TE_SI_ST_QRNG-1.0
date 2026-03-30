@@ -46,6 +46,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
 import tempfile
+import math
 
 # Import v16 core (A5 fixed: QRNGSessionState + CertifiedGenerationSession)
 from D_v16 import TrustEnhancedQRNG, TrustVector, QRNGSessionState, EATConvergenceWarning, InsufficientEntropyError
@@ -77,6 +78,30 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Parallel worker functions  (must be top-level for pickling)
 # ---------------------------------------------------------------------------
+
+_LARGE_ARG_BYTES = 8 * 1024 * 1024  # 8 MiB guard against cross-process array copies.
+
+
+def _run_worker_chunk(args) -> List[Tuple[str, Dict]]:
+    """
+    Worker: process a chunk of independent tasks sequentially in one process.
+
+    This keeps parallelism while avoiding one-process-per-scenario explosion
+    for high-memory scenarios.
+    """
+    worker_fn, chunk = args
+    return [worker_fn(item) for item in chunk]
+
+
+def _contains_large_numpy_payload(value) -> bool:
+    """True if a task argument contains a large ndarray (expensive to pickle)."""
+    if isinstance(value, np.ndarray):
+        return value.nbytes >= _LARGE_ARG_BYTES
+    if isinstance(value, (tuple, list)):
+        return any(_contains_large_numpy_payload(v) for v in value)
+    if isinstance(value, dict):
+        return any(_contains_large_numpy_payload(v) for v in value.values())
+    return False
 
 def _run_exp1_scenario(args) -> Tuple[str, Dict]:
     """Worker: experiment 1 — single scenario."""
@@ -908,6 +933,61 @@ class ExperimentRunner:
         mode_label = "DEBUG (sequential)" if debug_mode else f"parallel ({self.max_workers} workers)"
         print(f"[ExperimentRunner] Mode: {mode_label}")
 
+    def _available_ram_bytes(self) -> int:
+        """Best-effort available RAM estimate without extra dependencies."""
+        try:
+            pages = os.sysconf("SC_AVPHYS_PAGES")
+            page_size = os.sysconf("SC_PAGE_SIZE")
+            if pages > 0 and page_size > 0:
+                return int(pages * page_size)
+        except (ValueError, OSError, AttributeError):
+            pass
+        # Conservative fallback when OS counters are unavailable.
+        return int(2 * (1024 ** 3))
+
+    def _estimate_task_ram_bytes(self, worker_fn, task_args: list) -> int:
+        """
+        Coarse per-task memory footprint for dynamic worker throttling.
+
+        We estimate from n_bits (when present) and a scenario-dependent multiplier.
+        """
+        if not task_args:
+            return 0
+
+        sample = task_args[0]
+        n_bits = None
+        if isinstance(sample, tuple):
+            for item in reversed(sample):
+                if isinstance(item, int):
+                    n_bits = item
+                    break
+
+        if not n_bits:
+            return 256 * 1024 * 1024
+
+        name = getattr(worker_fn, "__name__", "")
+        if name == "_run_exp2_scenario":
+            bytes_per_bit = 24
+        elif name in {"_run_exp1_scenario", "_run_exp4_scenario", "_run_exp4b_scenario"}:
+            bytes_per_bit = 14
+        else:
+            bytes_per_bit = 12
+        return int(n_bits * bytes_per_bit + 160 * 1024 * 1024)
+
+    def _resolve_worker_budget(self, worker_fn, task_args: list) -> int:
+        """Pick safe worker count from CPU cap and available memory."""
+        if self.debug_mode or not task_args:
+            return 1
+
+        per_task = self._estimate_task_ram_bytes(worker_fn, task_args)
+        available = self._available_ram_bytes()
+        usable = int(available * 0.60)  # leave headroom for parent/interpreter.
+
+        if per_task <= 0:
+            return 1
+        ram_limited = max(1, usable // per_task)
+        return max(1, min(self.max_workers, ram_limited, len(task_args)))
+
     # ------------------------------------------------------------------
     # Dispatch helper — respects debug_mode
     # ------------------------------------------------------------------
@@ -916,16 +996,31 @@ class ExperimentRunner:
         """Run worker_fn over task_args, parallel or sequential per debug_mode."""
         results = {}
 
-        if self.debug_mode:
+        if any(_contains_large_numpy_payload(args) for args in task_args):
+            raise RuntimeError(
+                "Large NumPy payload detected in multiprocessing task arguments. "
+                "Pass lightweight descriptors and regenerate arrays inside workers."
+            )
+
+        effective_workers = self._resolve_worker_budget(worker_fn, task_args)
+        if effective_workers == 1:
+            if not self.debug_mode and len(task_args) > 1:
+                print(f"[ExperimentRunner] RAM-aware fallback: running {worker_fn.__name__} sequentially.")
             for args in task_args:
                 name, result = worker_fn(args)
                 results[name] = result
         else:
-            with ProcessPoolExecutor(max_workers=self.max_workers) as exe:
-                futures = {exe.submit(worker_fn, a): a[0] for a in task_args}
+            chunk_size = max(1, math.ceil(len(task_args) / effective_workers))
+            chunks = [task_args[i:i + chunk_size] for i in range(0, len(task_args), chunk_size)]
+
+            with ProcessPoolExecutor(max_workers=effective_workers) as exe:
+                futures = {
+                    exe.submit(_run_worker_chunk, (worker_fn, chunk)): idx
+                    for idx, chunk in enumerate(chunks)
+                }
                 for fut in as_completed(futures):
-                    name, result = fut.result()
-                    results[name] = result
+                    for name, result in fut.result():
+                        results[name] = result
 
         return results
 
@@ -1121,12 +1216,13 @@ class ExperimentRunner:
         task_args   = [(bias, n_bits) for bias in bias_levels]
 
         raw: Dict = {}
-        if self.debug_mode:
+        effective_workers = self._resolve_worker_budget(_run_exp4b_scenario, task_args)
+        if effective_workers == 1:
             for args in task_args:
                 bias, result = _run_exp4b_scenario(args)
                 raw[bias] = result
         else:
-            with ProcessPoolExecutor(max_workers=self.max_workers) as exe:
+            with ProcessPoolExecutor(max_workers=effective_workers) as exe:
                 futures = {exe.submit(_run_exp4b_scenario, a): a[0] for a in task_args}
                 for fut in as_completed(futures):
                     bias, result = fut.result()
