@@ -1282,6 +1282,8 @@ class TrustEnhancedQRNG:
 
         # Diagnostic state (does NOT feed into entropy bound)
         self.trust_vector = TrustVector()
+        self._last_energy_constraint_pass  = True
+        self._last_energy_constraint_score = 0.0
 
         # A5 FIX: block_entropy_history, block_n_gen_history, total_output_bits,
         # total_gen_input_bits, total_raw_input_bits REMOVED from __init__.
@@ -1305,6 +1307,15 @@ class TrustEnhancedQRNG:
         calibrated heuristics, not formally derived security bounds. The halt
         threshold (0.2) and warn threshold (0.5) are operational policy choices.
         None of these values appear in the certified entropy bound.
+
+        Energy-constraint integration note:
+        energy_constraint_test() contributes in two independent ways:
+          1) Continuous channel: total_dev is sigmoid-mapped into epsilon_leak.
+             This directly affects trust_score through the existing TrustVector.
+          2) Discrete channel: failed pass/fail result is stored and used by
+             _run_diagnostics() to trigger warning/halt policy decisions.
+        This keeps diagnostics operationally meaningful while preserving the
+        entropy-certification invariant.
         """
         freq_pass, freq_p = self.stat_tester.frequency_test(raw_bits)
         autocorr_pass, max_autocorr = self.stat_tester.autocorrelation_test(raw_bits)
@@ -1347,9 +1358,17 @@ class TrustEnhancedQRNG:
                     epsilon_leak = max(epsilon_leak, epsilon_leak_corr)
 
         epsilon_drift = 0.0
+        self._last_energy_constraint_pass  = True
+        self._last_energy_constraint_score = 0.0
         if raw_signal is not None:
             exp_mean, exp_std = signal_stats if signal_stats is not None else (0.0, 1.0)
-            self.quantum_tester.energy_constraint_test(raw_signal, exp_mean, exp_std)
+            energy_pass, energy_dev = self.quantum_tester.energy_constraint_test(
+                raw_signal, exp_mean, exp_std
+            )
+            self._last_energy_constraint_pass  = bool(energy_pass)
+            self._last_energy_constraint_score = float(energy_dev)
+            epsilon_leak_energy = _sigmoid(energy_dev, k=2.0, x0=1.5)  # heuristic
+            epsilon_leak = max(epsilon_leak, epsilon_leak_energy)
             # F3 FIX: feed per-block mean into CUSUM before reading detect_drift
             self.drift_monitor.update_efficiency(float(np.mean(raw_bits)))
             _, drift_score = self.drift_monitor.detect_drift()
@@ -1452,6 +1471,26 @@ class TrustEnhancedQRNG:
                 f"Degraded operation: trust_score={trust_score:.4f} "
                 f"< WARN_THRESHOLD={DiagnosticHaltError.WARN_THRESHOLD}. "
                 f"h_min_certified={h_min_certified:.4f} is unaffected."
+            )
+
+        # Energy-constraint hard-fail policy:
+        # - always influences epsilon_leak/trust_score via run_self_tests()
+        # - additionally, a failed boolean test escalates warning/halt directly
+        #   (without altering certified entropy).
+        if not self._last_energy_constraint_pass:
+            if self._last_energy_constraint_score >= 4.5:
+                raise DiagnosticHaltError(
+                    f"Energy-constraint violation: total_dev={self._last_energy_constraint_score:.4f} "
+                    f"(halt threshold 4.5). h_min_certified={h_min_certified:.4f} remains valid, "
+                    f"but operational policy requires halt."
+                )
+            energy_warning = (
+                f"Energy-constraint deviation detected: total_dev={self._last_energy_constraint_score:.4f} "
+                f"(pass threshold 3.0). h_min_certified={h_min_certified:.4f} is unaffected."
+            )
+            diagnostic_warning = (
+                energy_warning if diagnostic_warning is None
+                else f"{diagnostic_warning} {energy_warning}"
             )
 
         return trust_vector, diagnostic_warning
