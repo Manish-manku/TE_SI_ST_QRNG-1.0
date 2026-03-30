@@ -108,12 +108,16 @@ import numpy as np
 from scipy import stats
 from dataclasses import dataclass, field
 from typing import Tuple, Dict, List, Optional, Union
+from collections.abc import Sequence
 try:
     from typing import TypedDict
 except ImportError:          # Python < 3.8 fallback
     from typing_extensions import TypedDict
 import hashlib
 from collections import deque
+import json
+import tempfile
+from pathlib import Path
 
 
 # ---------------------------------------------------------------------------
@@ -828,6 +832,90 @@ class RandomnessExtractor:
 
 
 # ---------------------------------------------------------------------------
+# Streaming helpers (block-wise persistence; constant-memory accumulation)
+# ---------------------------------------------------------------------------
+
+class GenerationBitSpool:
+    """Append generation bits to disk and expose a read-only memmap view."""
+
+    def __init__(self):
+        tmp = tempfile.NamedTemporaryFile(prefix="te_qrng_gen_", suffix=".bin", delete=False)
+        self.path = Path(tmp.name)
+        tmp.close()
+        self.total_bits = 0
+
+    def append(self, bits: np.ndarray) -> None:
+        bits_u8 = np.asarray(bits, dtype=np.uint8).reshape(-1)
+        if bits_u8.size == 0:
+            return
+        with self.path.open("ab") as fh:
+            bits_u8.tofile(fh)
+        self.total_bits += int(bits_u8.size)
+
+    def memmap(self) -> np.memmap:
+        if self.total_bits <= 0:
+            return np.memmap(self.path, dtype=np.uint8, mode='r', shape=(0,))
+        return np.memmap(self.path, dtype=np.uint8, mode='r', shape=(self.total_bits,))
+
+    def cleanup(self) -> None:
+        try:
+            self.path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+class DiskBackedMetadataList(Sequence):
+    """
+    List-like metadata view backed by JSONL on disk.
+
+    Supports len(), integer indexing (including negative), slicing, and iteration
+    while avoiding in-memory accumulation of full per-block metadata.
+    """
+    def __init__(self, path: Path, count: int, start: int = 0, stop: Optional[int] = None):
+        self._path = Path(path)
+        self._count = int(count)
+        self._start = int(start)
+        self._stop = int(self._count if stop is None else stop)
+
+    def __len__(self) -> int:
+        return max(0, self._stop - self._start)
+
+    def _iter_range(self, start: int, stop: int):
+        with self._path.open("r", encoding="utf-8") as fh:
+            for idx, line in enumerate(fh):
+                if idx < start:
+                    continue
+                if idx >= stop:
+                    break
+                yield json.loads(line)
+
+    def __iter__(self):
+        yield from self._iter_range(self._start, self._stop)
+
+    def __getitem__(self, item):
+        if isinstance(item, slice):
+            start, stop, step = item.indices(len(self))
+            if step == 1:
+                return DiskBackedMetadataList(
+                    self._path,
+                    self._count,
+                    start=self._start + start,
+                    stop=self._start + stop,
+                )
+            return [self[i] for i in range(start, stop, step)]
+
+        idx = int(item)
+        if idx < 0:
+            idx += len(self)
+        if idx < 0 or idx >= len(self):
+            raise IndexError("DiskBackedMetadataList index out of range")
+        target = self._start + idx
+        for meta in self._iter_range(target, target + 1):
+            return meta
+        raise IndexError("DiskBackedMetadataList index out of range")
+
+
+# ---------------------------------------------------------------------------
 # A5 FIX — QRNGSessionState (NEW CLASS)
 # ---------------------------------------------------------------------------
 
@@ -944,7 +1032,7 @@ class CertifiedGenerationSession:
 
     def run(self,
             n_bits:           int,
-            source_simulator) -> Tuple[np.ndarray, List[Union[BlockMetadata, EATSummary]]]:
+            source_simulator) -> Tuple[np.ndarray, Sequence]:
         """
         Generate n_bits with full composable EAT-certified security.
 
@@ -960,6 +1048,8 @@ class CertifiedGenerationSession:
             (final_bits[:n_bits], metadata_list)
             metadata_list[-1] is always an EATSummary.
             metadata_list[:-1] are BlockMetadata dicts, one per block.
+            metadata_list is a disk-backed list-like Sequence to avoid
+            full in-memory metadata accumulation.
 
         Raises:
             ValueError:              n_bits <= 0
@@ -977,116 +1067,125 @@ class CertifiedGenerationSession:
         # Create a fresh session state for this run
         session = QRNGSessionState()
 
-        all_gen_bits:  List[np.ndarray] = []
-        metadata_list: List[Dict]       = []
+        gen_spool = GenerationBitSpool()
+        metadata_tmp = tempfile.NamedTemporaryFile(
+            prefix="te_qrng_meta_", suffix=".jsonl", delete=False
+        )
+        metadata_path = Path(metadata_tmp.name)
+        metadata_tmp.close()
+        metadata_count = 0
 
         block_size = self.te_qrng.block_size
 
-        while True:
-            raw_bits, bases, raw_signal = source_simulator.generate_block(block_size)
+        try:
+            while True:
+                raw_bits, bases, raw_signal = source_simulator.generate_block(block_size)
 
-            signal_stats = (source_simulator.get_signal_stats()
-                            if hasattr(source_simulator, 'get_signal_stats') else None)
+                try:
+                    # B5 FIX: pass signal_stats from the simulator so energy_constraint_test()
+                    # uses the correct physical baseline per source type, not default (0.0, 1.0).
+                    _sig_stats = (source_simulator.get_signal_stats()
+                                  if hasattr(source_simulator, 'get_signal_stats') else None)
+                    _, block_meta = self.te_qrng.process_block(
+                        raw_bits, bases, raw_signal, session=session,
+                        signal_stats=_sig_stats,
+                    )
+                except DiagnosticHaltError as exc:
+                    halt_meta = {
+                        'certified_quantity':  'H_min(X|E)',
+                        'security_definition': 'Trace-distance ε-security',
+                        'halt': True,
+                        'halt_reason': str(exc),
+                        'blocks_used': len(session.block_entropy_history),
+                        'h_total_eat': session.accumulate_eat(self.epsilon_eat),
+                    }
+                    with metadata_path.open("a", encoding="utf-8") as meta_fh:
+                        meta_fh.write(json.dumps(halt_meta) + "\n")
+                    raise
 
-            try:
-                # B5 FIX: pass signal_stats from the simulator so energy_constraint_test()
-                # uses the correct physical baseline per source type, not default (0.0, 1.0).
-                _sig_stats = (source_simulator.get_signal_stats()
-                              if hasattr(source_simulator, 'get_signal_stats') else None)
-                _, block_meta = self.te_qrng.process_block(
-                    raw_bits, bases, raw_signal, session=session,
-                    signal_stats=_sig_stats,
-                )
-            except DiagnosticHaltError as exc:
-                halt_meta = {
-                    'certified_quantity':  'H_min(X|E)',
-                    'security_definition': 'Trace-distance ε-security',
-                    'halt': True,
-                    'halt_reason': str(exc),
-                    'blocks_used': len(session.block_entropy_history),
-                    'h_total_eat': session.accumulate_eat(self.epsilon_eat),
-                }
-                metadata_list.append(halt_meta)
-                raise
+                with metadata_path.open("a", encoding="utf-8") as meta_fh:
+                    meta_fh.write(json.dumps(block_meta) + "\n")
+                metadata_count += 1
 
-            metadata_list.append(block_meta)
+                if bases is not None:
+                    gen_bits, _ = BB84RoundSplitter.split(raw_bits, bases)
+                else:
+                    gen_bits = raw_bits
+                gen_spool.append(gen_bits)
 
-            if bases is not None:
-                gen_bits, _ = BB84RoundSplitter.split(raw_bits, bases)
-            else:
-                gen_bits = raw_bits
-            all_gen_bits.append(gen_bits)
+                h_total          = session.accumulate_eat(self.epsilon_eat)
+                log2_inv_eps_ext = np.log2(1.0 / self.epsilon_ext)
+                max_output_bits  = int(h_total - 2.0 * log2_inv_eps_ext)
+
+                if max_output_bits >= n_bits:
+                    break
+
+                total_gen = gen_spool.total_bits
+                if total_gen > 50 * n_bits:
+                    raise EATConvergenceWarning(
+                        f"CertifiedGenerationSession.run: EAT bound not reached after "
+                        f"total_gen={total_gen} bits ({50 * n_bits} limit). "
+                        f"Source entropy too low for requested n_bits={n_bits}."
+                    )
+
+            # Global final Toeplitz extraction
+            all_gen_concat = gen_spool.memmap()
 
             h_total          = session.accumulate_eat(self.epsilon_eat)
             log2_inv_eps_ext = np.log2(1.0 / self.epsilon_ext)
-            max_output_bits  = int(h_total - 2.0 * log2_inv_eps_ext)
+            certified_output = max(int(h_total - 2.0 * log2_inv_eps_ext), 0)
+            output_length    = min(n_bits, certified_output)
 
-            if max_output_bits >= n_bits:
-                break
-
-            total_gen = sum(len(g) for g in all_gen_bits)
-            if total_gen > 50 * n_bits:
-                raise EATConvergenceWarning(
-                    f"CertifiedGenerationSession.run: EAT bound not reached after "
-                    f"total_gen={total_gen} bits ({50 * n_bits} limit). "
-                    f"Source entropy too low for requested n_bits={n_bits}."
+            if output_length < 1 or len(all_gen_concat) < 2:
+                raise InsufficientEntropyError(
+                    f"CertifiedGenerationSession.run: certified output length is "
+                    f"{output_length} bits after EAT accumulation. "
+                    f"h_total_eat={h_total:.4f}, certified_output={certified_output}."
                 )
 
-        # Global final Toeplitz extraction
-        all_gen_concat = (np.concatenate(all_gen_bits)
-                          if all_gen_bits else np.array([], dtype=np.uint8))
+            # S4 FIX: seed independent of source bits — use os.urandom()
+            import os as _os
+            seed_len  = min(2 * output_length, 512)
+            seed_arr  = np.unpackbits(
+                np.frombuffer(_os.urandom((seed_len + 7) // 8), dtype=np.uint8)
+            )[:seed_len]
+            extract_input = all_gen_concat
+            if len(extract_input) < output_length:
+                output_length = len(extract_input)
 
-        h_total          = session.accumulate_eat(self.epsilon_eat)
-        log2_inv_eps_ext = np.log2(1.0 / self.epsilon_ext)
-        certified_output = max(int(h_total - 2.0 * log2_inv_eps_ext), 0)
-        output_length    = min(n_bits, certified_output)
+            extractor  = RandomnessExtractor(input_length=len(extract_input),
+                                             output_length=output_length)
+            final_bits = extractor.adaptive_extract(extract_input, seed_arr)
 
-        if output_length < 1 or len(all_gen_concat) < 2:
-            raise InsufficientEntropyError(
-                f"CertifiedGenerationSession.run: certified output length is "
-                f"{output_length} bits after EAT accumulation. "
-                f"h_total_eat={h_total:.4f}, certified_output={certified_output}."
-            )
+            # Build EAT summary
+            t_blocks  = len(session.block_entropy_history)
+            sum_f_ei  = sum(session.block_entropy_history)
+            n_total   = sum(session.block_n_gen_history)
+            delta_eat = (2.0 * np.sqrt(n_total) *
+                         np.sqrt(np.log(1.0 / self.epsilon_eat))
+                         if t_blocks > 0 else 0.0)
 
-        # S4 FIX: seed independent of source bits — use os.urandom()
-        import os as _os
-        seed_len  = min(2 * output_length, 512)
-        seed_arr  = np.unpackbits(
-            np.frombuffer(_os.urandom((seed_len + 7) // 8), dtype=np.uint8)
-        )[:seed_len]
-        extract_input = all_gen_concat
-        if len(extract_input) < output_length:
-            output_length = len(extract_input)
+            eat_summary: EATSummary = {
+                'certified_quantity':    'H_min(X|E)',
+                'security_definition':   'Trace-distance ε-security',
+                'epsilon_total':         self.te_qrng.epsilon_total,
+                'epsilon_eat':           self.epsilon_eat,
+                'epsilon_smooth':        self.te_qrng.epsilon_smooth,
+                'epsilon_ext':           self.epsilon_ext,
+                'blocks_used':           t_blocks,
+                'h_total_eat':           h_total,
+                'certified_output_bits': certified_output,
+                'actual_output_bits':    len(final_bits),
+                'delta_eat':             delta_eat,
+                'sum_f_ei':              sum_f_ei,
+            }
+            with metadata_path.open("a", encoding="utf-8") as meta_fh:
+                meta_fh.write(json.dumps(eat_summary) + "\n")
+            metadata_count += 1
 
-        extractor  = RandomnessExtractor(input_length=len(extract_input),
-                                         output_length=output_length)
-        final_bits = extractor.adaptive_extract(extract_input, seed_arr)
-
-        # Build EAT summary
-        t_blocks  = len(session.block_entropy_history)
-        sum_f_ei  = sum(session.block_entropy_history)
-        n_total   = sum(session.block_n_gen_history)
-        delta_eat = (2.0 * np.sqrt(n_total) *
-                     np.sqrt(np.log(1.0 / self.epsilon_eat))
-                     if t_blocks > 0 else 0.0)
-
-        eat_summary: EATSummary = {
-            'certified_quantity':    'H_min(X|E)',
-            'security_definition':   'Trace-distance ε-security',
-            'epsilon_total':         self.te_qrng.epsilon_total,
-            'epsilon_eat':           self.epsilon_eat,
-            'epsilon_smooth':        self.te_qrng.epsilon_smooth,
-            'epsilon_ext':           self.epsilon_ext,
-            'blocks_used':           t_blocks,
-            'h_total_eat':           h_total,
-            'certified_output_bits': certified_output,
-            'actual_output_bits':    len(final_bits),
-            'delta_eat':             delta_eat,
-            'sum_f_ei':              sum_f_ei,
-        }
-        metadata_list.append(eat_summary)
-
-        return final_bits[:n_bits], metadata_list
+            return final_bits[:n_bits], DiskBackedMetadataList(metadata_path, metadata_count)
+        finally:
+            gen_spool.cleanup()
 
 
 # ---------------------------------------------------------------------------
@@ -1527,7 +1626,7 @@ class TrustEnhancedQRNG:
 
     def generate_certified_random_bits(self,
                                        n_bits:           int,
-                                       source_simulator) -> Tuple[np.ndarray, List[Union[BlockMetadata, EATSummary]]]:
+                                       source_simulator) -> Tuple[np.ndarray, Sequence]:
         """
         Backward-compatible shim — delegates to CertifiedGenerationSession.
 
