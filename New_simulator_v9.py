@@ -280,18 +280,24 @@ class QuantumSourceSimulator:
             return p.bias * 2.0, 1.0
 
         if st == SourceType.DRIFTING:
-            # randn + drift*2, drift bounded by drift_rate * (1 + 1/100k)
-            # Conservative: mean ≈ 0, std ≈ 1 (drift is small near t=0)
-            return 0.0, 1.0
+            # raw_signal ~ N(2*drift(t), 1), with drift driven by current time_step
+            t = float(self.time_step)
+            drift_t = p.drift_rate * (np.sin(2 * np.pi * t / 5000) + t / 100_000)
+            return float(2.0 * drift_t), 1.0
 
         if st == SourceType.CORRELATED:
-            # randn: N(0,1) — signal is independent of the memory bits
+            # AR(1) signal with stationary variance normalized to 1:
+            # x_t = alpha*x_{t-1} + eps_t, eps_t~N(0, 1-alpha^2)
             return 0.0, 1.0
 
         if st == SourceType.ATTACKED:
-            # randn + attack_strength: N(attack_strength, 1)
-            # Periodic forcing is also added: mean shifts by attack_strength
-            return float(p.attack_strength), 1.0
+            # raw_signal = N(mean_shift, scale^2) + structured_sine
+            # structured_sine has zero mean and variance A^2/2 across phase.
+            mean_shift = float(p.attack_strength)
+            scale = 1.0 + 0.5 * mean_shift
+            structured_var = (mean_shift ** 2) / 2.0
+            std = float(np.sqrt(scale ** 2 + structured_var))
+            return mean_shift, std
 
         if st == SourceType.NON_COOPERATIVE_ATTACKED:
             # measured ~ N(mu_attack, sigma²) — this IS the physical baseline
@@ -300,12 +306,10 @@ class QuantumSourceSimulator:
 
         if st == SourceType.PHOTON_COUNTING:
             # Signal is in {0.0, 0.5, 1.0}.
-            # P(detected)=η, P(dark)≈(1-η)·dc, P(missed)≈(1-η)·(1-dc)
-            # mean ≈ η·1.0 + (1-η)·dc·0.5 + (1-η)·(1-dc)·0.0 = η + 0.5·(1-η)·dc
+            # P(1.0)=η, P(0.5)=(1-η)·dc, P(0.0)=(1-η)·(1-dc)
             eta = p.detector_efficiency
             dc  = p.dark_count_rate
             mean = eta * 1.0 + (1 - eta) * dc * 0.5
-            # var  ≈ E[x²] - mean²; x∈{0,0.5,1} weighted by above probabilities
             e_x2 = eta * 1.0 + (1 - eta) * dc * 0.25
             std  = float(np.sqrt(max(e_x2 - mean**2, 1e-10)))
             return float(mean), std
@@ -330,11 +334,11 @@ class QuantumSourceSimulator:
     def _generate_biased(self, n_bits: int) -> GeneratedBlock:
         """Static bias: P(1) = 0.5 + bias."""
         p          = self.params
-        prob_one   = 0.5 + p.bias
+        mu         = p.bias * 2.0
 
-        bits       = (self.rng.rand(n_bits) < prob_one).astype(np.uint8)
+        raw_signal = self.rng.normal(loc=mu, scale=1.0, size=n_bits)
+        bits       = (raw_signal > 0.0).astype(np.uint8)
         bases      = self.rng.randint(0, 2, size=n_bits, dtype=np.uint8)
-        raw_signal = self.rng.randn(n_bits) + p.bias * 2
 
         self.time_step += n_bits
         return GeneratedBlock(bits, bases, raw_signal)
@@ -349,42 +353,36 @@ class QuantumSourceSimulator:
 
         t      = np.arange(self.time_step, self.time_step + n_bits, dtype=float)
         drift  = p.drift_rate * (np.sin(2 * np.pi * t / 5000) + t / 100_000)
-        probs  = np.clip(0.5 + drift, 0.01, 0.99)
-
-        bits       = (self.rng.rand(n_bits) < probs).astype(np.uint8)
+        raw_signal = self.rng.normal(loc=drift * 2.0, scale=1.0, size=n_bits)
+        bits       = (raw_signal > 0.0).astype(np.uint8)
         bases      = self.rng.randint(0, 2, size=n_bits, dtype=np.uint8)
-        raw_signal = self.rng.randn(n_bits) + drift * 2
 
         self.time_step += n_bits
         return GeneratedBlock(bits, bases, raw_signal)
 
     def _generate_correlated(self, n_bits: int) -> GeneratedBlock:
         """
-        Memory effects: each bit may repeat its predecessor.
-
-        Change 1: Vectorized using a pre-drawn decision array.
-        The correlation decision (repeat vs. fresh) is drawn all at once;
-        only the sequential dependency on the previous bit requires a small loop.
+        Memory effects applied to the analog signal via an AR(1)-like process:
+            raw[i] = alpha * raw[i-1] + noise[i]
+        Bits are then thresholded from raw_signal.
         """
         p = self.params
-        correlation_strength = min(p.correlation_length / 100, 0.9)
+        alpha = min(p.correlation_length / 100, 0.9)
+        noise_std = np.sqrt(max(1.0 - alpha ** 2, 1e-12))
 
-        # Pre-draw all randomness up front
-        use_memory   = self.rng.rand(n_bits) < correlation_strength
-        fresh_bits   = self.rng.randint(0, 2, size=n_bits, dtype=np.uint8)
-        raw_signal   = self.rng.randn(n_bits)
-        bases        = self.rng.randint(0, 2, size=n_bits, dtype=np.uint8)
-
-        bits = np.empty(n_bits, dtype=np.uint8)
-        last = self._memory_buffer[-1] if self._memory_buffer else fresh_bits[0]
+        noise = self.rng.normal(loc=0.0, scale=noise_std, size=n_bits)
+        raw_signal = np.empty(n_bits, dtype=float)
+        last = float(self._memory_buffer[-1]) if self._memory_buffer else self.rng.normal()
 
         for i in range(n_bits):
-            bit    = last if use_memory[i] else fresh_bits[i]
-            bits[i] = bit
-            last   = bit
+            last = alpha * last + noise[i]
+            raw_signal[i] = last
 
-        # Update memory buffer (keep only last correlation_length entries)
-        self._memory_buffer.extend(bits.tolist())
+        bits = (raw_signal > 0.0).astype(np.uint8)
+        bases = self.rng.randint(0, 2, size=n_bits, dtype=np.uint8)
+
+        # Preserve continuity across blocks using last correlated raw samples.
+        self._memory_buffer.extend(raw_signal.tolist())
         self._memory_buffer = self._memory_buffer[-p.correlation_length:]
 
         self.time_step += n_bits
@@ -392,43 +390,24 @@ class QuantumSourceSimulator:
 
     def _generate_attacked(self, n_bits: int) -> GeneratedBlock:
         """
-        Cooperative adversarial attack: random bit-forcing + periodic pattern injection.
+        Cooperative adversarial attack at the signal level.
 
-        COOPERATIVE MODEL — the adversary encodes the attack directly into
-        raw_signal (signal spikes at forced positions). This makes the attack
-        visible to energy_constraint_test() and is useful for testing that the
-        diagnostic layer responds to obvious interference.
-
-        For a realistic non-cooperative attack (adversary hides in the signal
-        distribution), use NonCooperativeAttackedParams and
-        _generate_non_cooperative_attacked() instead.
+        The adversary modifies raw_signal by combining:
+          - mean shift,
+          - variance increase,
+          - structured sinusoidal component.
+        Bits are then derived by thresholding this modified signal.
         """
         p = self.params
+        t = np.arange(self.time_step, self.time_step + n_bits, dtype=float)
 
-        bits = self.rng.randint(0, 2, size=n_bits, dtype=np.uint8)
+        mean_shift = float(p.attack_strength)
+        scale = 1.0 + 0.5 * float(p.attack_strength)
+        structured = float(p.attack_strength) * np.sin(2 * np.pi * t / 100.0)
 
-        # Random forcing: set chosen bits to 1
-        attack_mask       = self.rng.rand(n_bits) < p.attack_strength
-        bits[attack_mask] = 1
-
-        # Periodic pattern injection every 100 bits
-        pattern_width = max(1, int(p.attack_strength * 10))
-        starts        = np.arange(0, n_bits, 100)
-        ends          = np.minimum(starts + pattern_width, n_bits)
-
-        # Build a forcing indicator array (1 where forced, 0 elsewhere)
-        forcing = np.zeros(n_bits, dtype=float)
-        for s, e in zip(starts, ends):
-            bits[s:e]    = 1
-            forcing[s:e] = 1.0   # mark forced positions in signal
-
+        raw_signal = self.rng.normal(loc=mean_shift, scale=scale, size=n_bits) + structured
+        bits = (raw_signal > 0.0).astype(np.uint8)
         bases = self.rng.randint(0, 2, size=n_bits, dtype=np.uint8)
-
-        # raw_signal: base noise + constant attack offset + periodic forcing spike.
-        # The forcing spike raises local signal values and inflates std beyond the
-        # expected baseline (attack_strength, 1.0), making the attack visible to
-        # energy_constraint_test via an elevated std_deviation score.
-        raw_signal = self.rng.randn(n_bits) + p.attack_strength + forcing
 
         self.time_step += n_bits
         return GeneratedBlock(bits, bases, raw_signal)
@@ -481,26 +460,22 @@ class QuantumSourceSimulator:
         """
         Realistic single-photon detection.
 
-        Change 1: Vectorized using masks for detected / dark-count / missed cases.
-        Three outcomes per slot:
-          detected (efficiency)  → true quantum bit, raw = 1.0
-          dark count (rare)      → random bit,       raw = 0.5
-          missed                 → random bit,       raw = 0.0
+        Three outcomes per slot (signal-level randomness):
+          detected (efficiency)  → raw = 1.0
+          dark count (rare)      → raw = 0.5
+          missed                 → raw = 0.0
+        Bits are derived from raw_signal via thresholding (> 0.5).
         """
         p = self.params
 
-        true_bits  = self.rng.randint(0, 2, size=n_bits, dtype=np.uint8)
         detected   = self.rng.rand(n_bits) < p.detector_efficiency
         dark_count = (~detected) & (self.rng.rand(n_bits) < p.dark_count_rate)
-        missed     = ~detected & ~dark_count
 
-        bits       = np.empty(n_bits, dtype=np.uint8)
-        raw_signal = np.zeros(n_bits)
+        raw_signal = np.zeros(n_bits, dtype=float)
+        raw_signal[dark_count] = 0.5
+        raw_signal[detected] = 1.0
 
-        bits[detected]   = true_bits[detected];  raw_signal[detected]   = 1.0
-        bits[dark_count] = self.rng.randint(0, 2, size=dark_count.sum()); raw_signal[dark_count] = 0.5
-        bits[missed]     = self.rng.randint(0, 2, size=missed.sum());     raw_signal[missed]     = 0.0
-
+        bits = (raw_signal > 0.5).astype(np.uint8)
         bases = self.rng.randint(0, 2, size=n_bits, dtype=np.uint8)
 
         self.time_step += n_bits
