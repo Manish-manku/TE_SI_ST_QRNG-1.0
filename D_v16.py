@@ -691,13 +691,28 @@ class RandomnessExtractor:
         self.input_length  = input_length
         self.output_length = output_length
         self.seed_length   = seed_length or (2 * output_length)
+        self._fft_workspace: Dict[int, Dict[str, np.ndarray]] = {}
 
     _MAX_CIRC_SIZE: int = 1 << 23   # 8 388 608 elements, ~256 MB pipeline
 
+    @staticmethod
+    def _next_pow2(value: int) -> int:
+        return 1 << int(np.ceil(np.log2(max(value, 2))))
+
+    def _get_fft_workspace(self, circ_size: int) -> Dict[str, np.ndarray]:
+        ws = self._fft_workspace.get(circ_size)
+        if ws is None:
+            ws = {
+                "circ_col": np.zeros(circ_size, dtype=np.float32),
+                "x_pad": np.zeros(circ_size, dtype=np.float32),
+            }
+            self._fft_workspace[circ_size] = ws
+        return ws
+
     def _toeplitz_fft_chunk(self,
-                             weak_random: np.ndarray,
-                             seed:        np.ndarray,
-                             out_len:     int) -> np.ndarray:
+                            weak_random: np.ndarray,
+                            seed: np.ndarray,
+                            out_len: int) -> np.ndarray:
         n = len(weak_random)
         m = out_len
 
@@ -705,41 +720,42 @@ class RandomnessExtractor:
         if len(seed) < required:
             seed = self._extend_seed(seed, required)
 
-        col      = seed[:m].astype(np.float32)
-        row_tail = seed[1:n].astype(np.float32)
-
-        raw_size  = m + n
-        circ_size = 1 << int(np.ceil(np.log2(max(raw_size, 2))))
+        raw_size  = n + m
+        circ_size = self._next_pow2(raw_size)
         circ_size = min(circ_size, self._MAX_CIRC_SIZE)
 
-        circ_col = np.zeros(circ_size, dtype=np.float32)
-        circ_col[:m] = col
-        if len(row_tail) > 0:
+        ws = self._get_fft_workspace(circ_size)
+        circ_col = ws["circ_col"]
+        x_pad = ws["x_pad"]
+        circ_col.fill(0.0)
+        x_pad.fill(0.0)
+
+        circ_col[:m] = seed[:m]
+        if n > 1:
+            row_tail = seed[1:n]
             circ_col[circ_size - len(row_tail):] = row_tail[::-1]
 
-        x_pad = np.zeros(circ_size, dtype=np.float32)
-        x_pad[:n] = weak_random.astype(np.float32)
+        x_pad[:n] = weak_random
 
         try:
-            y_full = np.fft.irfft(
-                np.fft.rfft(circ_col) * np.fft.rfft(x_pad),
-                n=circ_size
-            )
+            fft_circ = np.fft.rfft(circ_col)
+            fft_x = np.fft.rfft(x_pad)
+            y_full = np.fft.irfft(fft_circ * fft_x, n=circ_size)
         except MemoryError:
             raise MemoryError(
                 f"_toeplitz_fft_chunk: n={n}, m={m}, circ_size={circ_size}. "
                 "Reduce block_size or max_workers."
             )
 
-        output = np.round(y_full[:m]).astype(np.int64) % 2
-        return output.astype(np.uint8)
+        output = np.bitwise_and(np.rint(y_full[:m]).astype(np.int64), 1)
+        return output.astype(np.uint8, copy=False)
 
     def toeplitz_extract(self, weak_random: np.ndarray,
                           seed: np.ndarray) -> np.ndarray:
         n = len(weak_random)
         m = self.output_length
 
-        single_circ = 1 << int(np.ceil(np.log2(max(m + n, 2))))
+        single_circ = self._next_pow2(m + n)
         if single_circ <= self._MAX_CIRC_SIZE:
             required = n + m - 1
             if len(seed) < required:
@@ -754,7 +770,7 @@ class RandomnessExtractor:
 
         seed_bytes = np.packbits(seed[:min(len(seed), 2048)]).tobytes()
 
-        output_chunks: List[np.ndarray] = []
+        result = np.empty(m, dtype=np.uint8)
         bits_produced = 0
 
         for i in range(n_chunks):
@@ -771,26 +787,25 @@ class RandomnessExtractor:
 
             chunk_seed = self._derive_chunk_seed(seed_bytes, i, nc_i + mc_i - 1)
             out_chunk  = self._toeplitz_fft_chunk(chunk, chunk_seed, mc_i)
-            output_chunks.append(out_chunk)
-            bits_produced += len(out_chunk)
+            produced = len(out_chunk)
+            result[bits_produced:bits_produced + produced] = out_chunk
+            bits_produced += produced
 
-        if not output_chunks:
+        if bits_produced == 0:
             raise ExtractionFailureError(
                 f"toeplitz_extract: chunked path produced no output. "
                 f"n={n}, m={m}, n_chunks={n_chunks}. "
                 "This would previously have returned all-zero bits silently."
             )
 
-        result = np.concatenate(output_chunks)
-
-        if len(result) < m:
+        if bits_produced < m:
             raise ExtractionFailureError(
-                f"toeplitz_extract: chunked path produced {len(result)} bits "
+                f"toeplitz_extract: chunked path produced {bits_produced} bits "
                 f"but {m} were requested. "
-                f"n={n}, m={m}, n_chunks={n_chunks}, bits_produced={len(result)}."
+                f"n={n}, m={m}, n_chunks={n_chunks}, bits_produced={bits_produced}."
             )
 
-        return result[:m]
+        return result
 
     def _derive_chunk_seed(self, master_seed_bytes: bytes,
                             chunk_idx: int, length: int) -> np.ndarray:
