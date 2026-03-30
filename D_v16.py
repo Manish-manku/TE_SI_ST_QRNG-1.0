@@ -118,6 +118,7 @@ from collections import deque
 import json
 import tempfile
 from pathlib import Path
+import os
 
 
 # ---------------------------------------------------------------------------
@@ -850,6 +851,8 @@ class GenerationBitSpool:
             return
         with self.path.open("ab") as fh:
             bits_u8.tofile(fh)
+            fh.flush()
+            os.fsync(fh.fileno())
         self.total_bits += int(bits_u8.size)
 
     def memmap(self) -> np.memmap:
@@ -1101,10 +1104,14 @@ class CertifiedGenerationSession:
                     }
                     with metadata_path.open("a", encoding="utf-8") as meta_fh:
                         meta_fh.write(json.dumps(halt_meta) + "\n")
+                        meta_fh.flush()
+                        os.fsync(meta_fh.fileno())
                     raise
 
                 with metadata_path.open("a", encoding="utf-8") as meta_fh:
                     meta_fh.write(json.dumps(block_meta) + "\n")
+                    meta_fh.flush()
+                    os.fsync(meta_fh.fileno())
                 metadata_count += 1
 
                 if bases is not None:
@@ -1181,6 +1188,8 @@ class CertifiedGenerationSession:
             }
             with metadata_path.open("a", encoding="utf-8") as meta_fh:
                 meta_fh.write(json.dumps(eat_summary) + "\n")
+                meta_fh.flush()
+                os.fsync(meta_fh.fileno())
             metadata_count += 1
 
             return final_bits[:n_bits], DiskBackedMetadataList(metadata_path, metadata_count)

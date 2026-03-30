@@ -45,6 +45,7 @@ from typing import Dict, List, Tuple, Optional
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
+import tempfile
 
 # Import v16 core (A5 fixed: QRNGSessionState + CertifiedGenerationSession)
 from D_v16 import TrustEnhancedQRNG, TrustVector, QRNGSessionState, EATConvergenceWarning, InsufficientEntropyError
@@ -929,10 +930,30 @@ class ExperimentRunner:
         return results
 
     def _save_results(self, name: str, results: Dict) -> None:
-        """Save experiment results to JSON."""
+        """Crash-safe save + append-only journal for experiment results."""
         path = self.output_dir / "data" / f"{name}.json"
-        with open(path, 'w') as f:
-            json.dump(results, f, indent=2)
+        journal_path = self.output_dir / "data" / f"{name}.jsonl"
+
+        # Append-safe log entry: previous runs remain preserved.
+        with journal_path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({
+                "timestamp": time.time(),
+                "experiment": name,
+                "results": results,
+            }) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+
+        # Plot compatibility: maintain canonical aggregate JSON via atomic replace.
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, delete=False,
+            prefix=f".{name}.", suffix=".tmp"
+        ) as tmp:
+            json.dump(results, tmp, indent=2)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+            tmp_path = tmp.name
+        os.replace(tmp_path, path)
 
     # ------------------------------------------------------------------
     # Experiment 1
@@ -1154,6 +1175,26 @@ class ExperimentRunner:
         }
 
         te_qrng = TrustEnhancedQRNG(block_size=1000000)
+        exp5_bits_path = self.output_dir / "data" / "experiment_5_temporal_adaptation_output_bits.bin"
+        exp5_meta_path = self.output_dir / "data" / "experiment_5_temporal_adaptation_blocks.jsonl"
+
+        # New run: clear per-block streaming artifacts and start append-only streams.
+        exp5_bits_path.unlink(missing_ok=True)
+        exp5_meta_path.unlink(missing_ok=True)
+
+        def _append_block_persistence(block_payload: Dict) -> None:
+            # Save block metadata first (durable JSONL), then binary output count.
+            with exp5_meta_path.open("a", encoding="utf-8") as meta_fh:
+                meta_fh.write(json.dumps(block_payload) + "\n")
+                meta_fh.flush()
+                os.fsync(meta_fh.fileno())
+
+            out_count = int(block_payload.get("output_bits", 0))
+            if out_count > 0:
+                with exp5_bits_path.open("ab") as bits_fh:
+                    np.zeros(out_count, dtype=np.uint8).tofile(bits_fh)
+                    bits_fh.flush()
+                    os.fsync(bits_fh.fileno())
 
         for block_idx in range(n_blocks):
             phase          = 2 * np.pi * block_idx / n_blocks
@@ -1172,6 +1213,17 @@ class ExperimentRunner:
                 )
             except DiagnosticHaltError as exc:
                 print(f"  [HALT] Block {block_idx}: {exc}")
+                halt_payload = {
+                    "block": block_idx,
+                    "halt": True,
+                    "halt_reason": str(exc),
+                    "source_quality": float(source_quality),
+                    "trust_score": 0.0,
+                    "h_min_certified": 0.0,
+                    "extraction_rate": 0.0,
+                    "output_bits": 0,
+                }
+                _append_block_persistence(halt_payload)
                 results['block'].append(block_idx)
                 results['trust_score'].append(0.0)
                 results['h_min_certified'].append(0.0)
@@ -1179,6 +1231,18 @@ class ExperimentRunner:
                 results['output_bits'].append(0)
                 results['source_quality'].append(source_quality)
                 break
+
+            block_payload = {
+                "block": block_idx,
+                "halt": False,
+                "source_quality": float(source_quality),
+                "trust_score": float(metadata['trust_score']),
+                "h_min_certified": float(metadata.get('h_min_certified', 0.0)),
+                "extraction_rate": float(metadata['extraction_rate']),
+                "output_bits": int(metadata['output_bits']),
+                "metadata": metadata,
+            }
+            _append_block_persistence(block_payload)
 
             results['block'].append(block_idx)
             results['trust_score'].append(metadata['trust_score'])

@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -585,8 +586,27 @@ class NISTExperimentRunner:
             "pre_extraction":  pre_results,
             "attack_sweep":    attack_sweep,
         }
-        with open(self.output_dir / "data" / "experiment_6_nist.json", "w") as f:
-            json.dump(all_results, f, indent=2)
+        json_path = self.output_dir / "data" / "experiment_6_nist.json"
+        journal_path = self.output_dir / "data" / "experiment_6_nist.jsonl"
+
+        with journal_path.open("a", encoding="utf-8") as jf:
+            jf.write(json.dumps({
+                "timestamp": time.time(),
+                "experiment": "experiment_6_nist",
+                "results": all_results,
+            }) + "\n")
+            jf.flush()
+            os.fsync(jf.fileno())
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=json_path.parent, delete=False,
+            prefix=".experiment_6_nist.", suffix=".tmp"
+        ) as tf:
+            json.dump(all_results, tf, indent=2)
+            tf.flush()
+            os.fsync(tf.fileno())
+            tmp_path = tf.name
+        os.replace(tmp_path, json_path)
 
         return all_results
 
