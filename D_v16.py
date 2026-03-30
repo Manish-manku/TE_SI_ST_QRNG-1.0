@@ -165,14 +165,7 @@ class BlockMetadata(TypedDict):
     # ---- Throughput -------------------------------------------------------
     input_bits:            int    # Raw bits fed into this block (after gating)
     cumulative_efficiency: float  # total_output / total_raw_input
-    # ---- Pre-value gate (Layer 1 — v8/v9) --------------------------------
-    gate_enabled:          bool
-    gate_tau:              Optional[float]
-    gate_yield:            Optional[float]
-    epsilon_gate:          Optional[float]
-    gate_imr:              Optional[float]
-    gate_n_accepted:       int
-    gate_n_total:          int
+    
 
 
 class EATSummary(TypedDict):
@@ -579,93 +572,6 @@ class PhysicalDriftMonitor:
         drift_detected = self._drift_score >= 1.0
         return drift_detected, self._drift_score
 
-
-# ---------------------------------------------------------------------------
-# PreValueGate
-# ---------------------------------------------------------------------------
-
-class PreValueGate:
-    """
-    Adaptive pre-value symmetric gating for CV-QRNG.
-    """
-
-    _TAU_SEARCH_GRID: np.ndarray = np.linspace(0.0, 3.0, 301)
-
-    def __init__(self,
-                 sigma:         float = 1.0,
-                 yield_min:     float = 0.30,
-                 tau_init:      float = 0.5):
-        self.sigma     = sigma
-        self.yield_min = yield_min
-        self.tau       = tau_init
-
-        self._imr_grid = self._imr(self._TAU_SEARCH_GRID)
-
-    def _imr(self, tau_over_sigma: np.ndarray) -> np.ndarray:
-        from scipy.stats import norm
-        pdf_val = norm.pdf(tau_over_sigma)
-        sf_val  = norm.sf(tau_over_sigma)
-        sf_val  = np.maximum(sf_val, 1e-15)
-        return pdf_val / sf_val
-
-    def update_tau(self, epsilon_bias: float) -> float:
-        from scipy.stats import norm
-
-        tau_grid   = self._TAU_SEARCH_GRID * self.sigma
-        yield_grid = 2.0 * norm.sf(self._TAU_SEARCH_GRID)
-
-        valid = yield_grid >= self.yield_min
-        if not np.any(valid):
-            self.tau = tau_grid[0]
-            return self.tau
-
-        imr_valid       = np.where(valid, self._imr_grid, np.inf)
-        best_idx        = int(np.argmin(imr_valid))
-        self.tau        = float(tau_grid[best_idx])
-
-        return self.tau
-
-    def apply(self,
-              raw_signal: np.ndarray,
-              bits:       np.ndarray,
-              bases:      np.ndarray
-              ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Dict]:
-        n_total     = len(raw_signal)
-        gate_mask   = np.abs(raw_signal) > self.tau
-
-        accepted_signal = raw_signal[gate_mask]
-        accepted_bits   = bits[gate_mask]
-        accepted_bases  = bases[gate_mask]
-
-        n_accepted  = int(np.sum(gate_mask))
-        yield_rate  = n_accepted / max(n_total, 1)
-
-        if n_accepted > 10:
-            epsilon_gate = float(abs(np.mean(accepted_bits) - 0.5))
-        else:
-            epsilon_gate = 0.5
-
-        from scipy.stats import norm
-        imr_val = float(norm.pdf(self.tau / self.sigma) /
-                        max(norm.sf(self.tau / self.sigma), 1e-15))
-
-        gate_meta = {
-            'tau':          self.tau,
-            'n_total':      n_total,
-            'n_accepted':   n_accepted,
-            'yield_rate':   yield_rate,
-            'epsilon_gate': epsilon_gate,
-            'imr':          imr_val,
-            'sigma':        self.sigma,
-        }
-
-        return accepted_signal, accepted_bits, accepted_bases, gate_meta
-
-    def epsilon_gate_bound(self, mu_attack: float) -> float:
-        from scipy.stats import norm
-        imr = float(norm.pdf(self.tau / self.sigma) /
-                    max(norm.sf(self.tau / self.sigma), 1e-15))
-        return abs(mu_attack) * imr / 2.0
 
 
 # ---------------------------------------------------------------------------
@@ -1083,9 +989,13 @@ class CertifiedGenerationSession:
                             if hasattr(source_simulator, 'get_signal_stats') else None)
 
             try:
+                # B5 FIX: pass signal_stats from the simulator so energy_constraint_test()
+                # uses the correct physical baseline per source type, not default (0.0, 1.0).
+                _sig_stats = (source_simulator.get_signal_stats()
+                              if hasattr(source_simulator, 'get_signal_stats') else None)
                 _, block_meta = self.te_qrng.process_block(
                     raw_bits, bases, raw_signal, session=session,
-                    signal_stats=signal_stats
+                    signal_stats=_sig_stats,
                 )
             except DiagnosticHaltError as exc:
                 halt_meta = {
@@ -1200,7 +1110,6 @@ class TrustEnhancedQRNG:
         7. Seed derivation (independent)     (_extract_block)
         8. Toeplitz extraction               (_extract_block → RandomnessExtractor)
         9. Metadata assembly                 (_assemble_metadata)
-       10. Pre-value gating (Layer 1)        (_certify_block → PreValueGate)
 
     Responsibilities removed (now in QRNGSessionState / CertifiedGenerationSession):
         - EAT accumulation state
@@ -1215,7 +1124,7 @@ class TrustEnhancedQRNG:
 
     Pipeline per block
     ------------------
-    0. Pre-value gating     → discard low-confidence events
+    
     1. BB84 round splitting → generation bits + test bits
     2. Phase-error cert     → H_cert from Hoeffding bound
     3. Statistical tests    → TrustVector updated
@@ -1231,27 +1140,16 @@ class TrustEnhancedQRNG:
     def __init__(self,
                  block_size:           int   = 1000,
                  security_parameter:   float = 1e-6,
-                 extractor_efficiency: float = 0.9,
-                 enable_gating:        bool  = True,
-                 sigma_signal:         float = 1.0,
-                 yield_min:            float = 0.30):
+                 extractor_efficiency: float = 0.9):
         self.block_size           = block_size
         self.security_parameter   = security_parameter
         self.extractor_efficiency = extractor_efficiency
-        self.enable_gating        = enable_gating
 
         # Components
         self.stat_tester       = StatisticalSelfTester(window_size=block_size)
         self.quantum_tester    = QuantumWitnessTester()
         self.drift_monitor     = PhysicalDriftMonitor()
         self.entropy_estimator = EntropyEstimator(security_parameter=security_parameter)
-
-        # Pre-value gate (Layer 1)
-        self.pre_value_gate = PreValueGate(
-            sigma     = sigma_signal,
-            yield_min = yield_min,
-            tau_init  = 0.5,
-        )
 
         # Composable epsilon budget (mirrors EntropyEstimator)
         self.epsilon_total  = self.entropy_estimator.epsilon_total
@@ -1285,13 +1183,24 @@ class TrustEnhancedQRNG:
         threshold (0.2) and warn threshold (0.5) are operational policy choices.
         None of these values appear in the certified entropy bound.
         """
-       
+        freq_pass, freq_p = self.stat_tester.frequency_test(raw_bits)
         autocorr_pass, max_autocorr = self.stat_tester.autocorrelation_test(raw_bits)
+        _,             epsilon_sv   = self.stat_tester.santha_vazirani_test(raw_bits)
+        _,             runs_p       = self.stat_tester.runs_test(raw_bits)
 
         raw_obs_bias = abs(float(np.mean(raw_bits)) - 0.5)
         epsilon_bias = _sigmoid(raw_obs_bias, k=17.0, x0=0.20)  # heuristic — not a security bound
 
-        epsilon_corr = _sigmoid(max_autocorr, k=26.0, x0=0.15)  # heuristic — not a security bound
+        # F4 FIX: epsilon_corr now fuses autocorrelation + SV source test + runs test.
+        # Previously santha_vazirani_test() and runs_test() were either called and
+        # discarded or not called at all — wasted CPU and misleading to readers.
+        # Now all three correlation signals feed into one fused epsilon_corr via max().
+        runs_signal  = 1.0 - min(runs_p, 1.0)   # high runs_p = random = low signal
+        epsilon_corr = max(
+            _sigmoid(max_autocorr, k=26.0, x0=0.15),  # heuristic
+            _sigmoid(epsilon_sv,   k=20.0, x0=0.15),  # heuristic
+            _sigmoid(runs_signal,  k=10.0, x0=0.30),  # heuristic
+        )
 
         epsilon_leak = 0.0
         if bases is not None:
@@ -1343,28 +1252,17 @@ class TrustEnhancedQRNG:
                        session:    QRNGSessionState,
                        ) -> Dict:
         """
-        Steps 0–3: pre-value gating, BB84 split, Hoeffding certification,
-        EAT history append.
+        Steps 1–3: BB84 split, Hoeffding certification, EAT history append.
 
-        A5 FIX: takes session: QRNGSessionState parameter so that EAT state
-        (block_entropy_history, block_n_gen_history) lives in the session object
-        rather than on self. append_block() delegates to session.
+        Gating (Step 0) removed. Raw bits, bases and raw_signal are passed
+        in unfiltered directly from the simulator. Layer 2 (_run_diagnostics)
+        then receives these same unfiltered arrays and runs its own independent
+        statistical tests — frequency, autocorrelation, SV, runs, dimension
+        witness, energy constraint, drift — on the full unmodified data.
+
+        This guarantees Layer 2 sees exactly what the source produced,
+        with no pre-selection bias from gating.
         """
-        # Step 0: Pre-value gating (Layer 1)
-        gate_meta: Dict = {'enabled': False}
-        if self.enable_gating and raw_signal is not None and len(raw_signal) == n_raw:
-            self.pre_value_gate.update_tau(self.trust_vector.epsilon_bias)
-
-            _, raw_bits, bases_gated, gate_meta = self.pre_value_gate.apply(
-                raw_signal, raw_bits,
-                bases if bases is not None else np.zeros(n_raw, dtype=np.uint8)
-            )
-            gate_meta['enabled'] = True
-            if bases is not None:
-                bases      = bases_gated
-            raw_signal = raw_signal[np.abs(raw_signal) > self.pre_value_gate.tau]
-            n_raw      = len(raw_bits)
-
         # Step 1: BB84 round splitting
         if bases is not None:
             gen_bits, test_bits = BB84RoundSplitter.split(raw_bits, bases)
@@ -1392,7 +1290,6 @@ class TrustEnhancedQRNG:
             'bases':           bases,
             'raw_signal':      raw_signal,
             'n_raw':           n_raw,
-            'gate_meta':       gate_meta,
             'gen_bits':        gen_bits,
             'n_gen':           n_gen,
             'n_test':          n_test,
@@ -1485,7 +1382,6 @@ class TrustEnhancedQRNG:
     def _assemble_metadata(self,
                            cert:              Dict,
                            n_raw:             int,
-                           gate_meta:         Dict,
                            trust_vector:      TrustVector,
                            diagnostic_warning: Optional[str],
                            output_bits_len:   int,
@@ -1554,13 +1450,6 @@ class TrustEnhancedQRNG:
             'input_bits':          n_raw,
             'cumulative_efficiency': (session.total_output_bits /
                                       max(session.total_raw_input_bits, 1)),
-            'gate_enabled':      gate_meta.get('enabled', False),
-            'gate_tau':          gate_meta.get('tau', None),
-            'gate_yield':        gate_meta.get('yield_rate', None),
-            'epsilon_gate':      gate_meta.get('epsilon_gate', None),
-            'gate_imr':          gate_meta.get('imr', None),
-            'gate_n_accepted':   gate_meta.get('n_accepted', n_raw),
-            'gate_n_total':      gate_meta.get('n_total', n_raw),
         }
         return meta
 
@@ -1624,9 +1513,8 @@ class TrustEnhancedQRNG:
             'cert':            c['cert'],
         }
 
-        # Layer 4 — Bookkeeping (updates session throughput counters)
         meta = self._assemble_metadata(
-            cert_bundle, c['n_raw'], c['gate_meta'],
+            cert_bundle, c['n_raw'],
             trust_vector, diagnostic_warning, len(output_bits),
             session,
         )

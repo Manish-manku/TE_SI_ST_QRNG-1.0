@@ -55,7 +55,7 @@ import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 import numpy as np
 
-from D_v16 import TrustEnhancedQRNG
+from D_v16 import TrustEnhancedQRNG, EATConvergenceWarning, InsufficientEntropyError
 from New_simulator_v9 import (
     QuantumSourceSimulator,
     create_test_scenarios,
@@ -78,7 +78,7 @@ def _worker_post_extraction(args) -> Tuple[str, Dict]:
     scenario_name, params, n_bits = args
 
     source  = QuantumSourceSimulator(params, seed=42)
-    te_qrng = TrustEnhancedQRNG(block_size=1_000_000)
+    te_qrng = TrustEnhancedQRNG(block_size=500_000)
 
     try:
         output_bits, metadata_list = te_qrng.generate_certified_random_bits(
@@ -90,6 +90,18 @@ def _worker_post_extraction(args) -> Tuple[str, Dict]:
             f"(n_bits={n_bits}). Toeplitz FFT hit memory limit. "
             "Reduce n_bits/block_size or run with fewer workers."
         ) from exc
+    except (EATConvergenceWarning, InsufficientEntropyError) as exc:
+        # Not fatal: source entropy too low to certify requested bits
+        print(f"Warning: _worker_post_extraction scenario '{scenario_name}' failed: {exc}")
+        return scenario_name, {
+            "p_values":    [None] * N_TESTS,
+            "passed":      [None] * N_TESTS,
+            "pass_rate":   0.0,
+            "n_bits":      0,
+            "h_total_eat": 0.0,
+            "backend":     "TE-SI-QRNG",
+            "certification_failed": True,
+        }
 
     runner = NISTTestRunner(significance=0.01)
 
@@ -159,6 +171,16 @@ def _worker_attack_sweep(args) -> Tuple[float, Dict]:
             f"MemoryError in _worker_attack_sweep (attack_strength={attack_strength}, "
             f"n_bits={n_bits}). Toeplitz FFT hit memory limit."
         ) from exc
+    except (EATConvergenceWarning, InsufficientEntropyError) as exc:
+        print(f"Warning: _worker_attack_sweep attack_strength={attack_strength} failed: {exc}")
+        return attack_strength, {
+            "raw_pass_rate":  0.0,
+            "ext_pass_rate":  0.0,
+            "trust_score":    0.0,
+            "raw_p_values":   [None] * N_TESTS,
+            "ext_p_values":   [None] * N_TESTS,
+            "certification_failed": True,
+        }
 
     runner = NISTTestRunner(significance=0.01)
 
@@ -525,7 +547,7 @@ class NISTExperimentRunner:
                  max_workers: Optional[int] = None):
         self.output_dir  = Path(output_dir)
         self.n_bits      = n_bits
-        self.max_workers = max_workers or os.cpu_count()
+        self.max_workers = max_workers or max(os.cpu_count() - 2, 1)
 
         self.output_dir.mkdir(exist_ok=True)
         (self.output_dir / "figures").mkdir(exist_ok=True)
@@ -667,6 +689,7 @@ if __name__ == "__main__":
     runner = NISTExperimentRunner(
         output_dir="results",
         n_bits=1_000_000,
+        max_workers=1,
     )
     results = runner.run_all()
 
@@ -685,8 +708,12 @@ if __name__ == "__main__":
 
     overall = np.mean([post[s]["pass_rate"] for s in post])
     print(f"\nOverall mean pass rate: {overall:.1%}")
-    print("\nKey finding:")
-    print("  • Ideal / phase-noise sources → high NIST pass rates after extraction")
-    print("  • Strongly attacked sources  → raw bits fail NIST, extracted bits")
-    print("    may still pass (extractor whitens), but trust score drops sharply")
+    print("\nKey findings:")
+    print("  • Pre-extraction NIST rates vary widely (0%–100%) across source types")
+    print("    — this is the informative result showing which sources are imperfect")
+    print("  • Post-extraction NIST rates are uniformly high — expected behaviour")
+    print("    guaranteed by the LHL: any Toeplitz extractor on a nonzero-entropy")
+    print("    source produces near-uniform output. This is a sanity check, not")
+    print("    an independent security finding.")
     print("  • Trust score is the correct security indicator — NIST is supplementary")
+    print("  • ε_total and EAT bounds are the primary security parameters")

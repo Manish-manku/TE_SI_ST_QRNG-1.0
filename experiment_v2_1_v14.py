@@ -266,6 +266,9 @@ def _run_exp4_scenario(args) -> Tuple[str, Dict]:
             f"MemoryError in experiment 4 scenario '{scenario_name}' (TE-SI-QRNG). "
             f"n_bits={n_bits}."
         ) from exc
+    except (EATConvergenceWarning, InsufficientEntropyError) as exc:
+        print(f"Warning: TE-SI-QRNG certification failed for scenario '{scenario_name}': {exc}")
+        te_output, te_metadata = np.array([], dtype=np.uint8), [{}]
 
     source.reset()
     si_qrng = StandardSIQRNG(block_size=1000000, extractor_efficiency=0.95)
@@ -279,6 +282,9 @@ def _run_exp4_scenario(args) -> Tuple[str, Dict]:
             f"MemoryError in experiment 4 scenario '{scenario_name}' (Standard SI-QRNG). "
             f"n_bits={n_bits}."
         ) from exc
+    except (EATConvergenceWarning, InsufficientEntropyError) as exc:
+        print(f"Warning: Standard SI-QRNG certification failed for scenario '{scenario_name}': {exc}")
+        si_output, si_metadata = np.array([], dtype=np.uint8), [{}]
 
     te_quality = _compute_quality_score_static(te_output)
     si_quality = _compute_quality_score_static(si_output)
@@ -287,13 +293,13 @@ def _run_exp4_scenario(args) -> Tuple[str, Dict]:
     si_blocks = si_metadata[:-1]
 
     result = {
-        'te_output_bits':   len(te_output),
-        'si_output_bits':   len(si_output),
-        'te_quality_score': te_quality,
-        'si_quality_score': si_quality,
-        'te_avg_trust':     float(np.mean([m['trust_score'] for m in te_blocks])) if te_blocks else 0.0,
-        'te_avg_h_min_per_bit': float(np.mean([m.get('h_min_certified', 0) for m in te_blocks])) if te_blocks else 0.0,
-        'si_avg_h_min_per_bit': float(np.mean([m.get('h_min_certified', 0) for m in si_blocks])) if si_blocks else 0.0,
+        'te_output_bits':    len(te_output),
+        'si_output_bits':    len(si_output),
+        'te_quality_score':  te_quality,
+        'si_quality_score':  si_quality,
+        'te_avg_trust':      float(np.mean([m['trust_score'] for m in te_blocks])) if te_blocks else 0.0,
+        'te_h_min_per_bit':  float(np.mean([m.get('h_min_certified', 0) for m in te_blocks])) if te_blocks else 0.0,
+        'si_h_min_per_bit':  float(np.mean([m.get('h_min_certified', 0) for m in si_blocks])) if si_blocks else 0.0,
     }
     return scenario_name, result
 
@@ -582,8 +588,8 @@ class ExperimentPlotter:
         si_output   = [results[s]['si_output_bits']   for s in scenarios]
         te_quality  = [results[s]['te_quality_score'] for s in scenarios]
         si_quality  = [results[s]['si_quality_score'] for s in scenarios]
-        te_h_cert   = [results[s]['te_avg_h_min_per_bit'] for s in scenarios]
-        si_h_cert   = [results[s]['si_avg_h_min_per_bit'] for s in scenarios]
+        te_h_cert   = [results[s]['te_h_min_per_bit'] for s in scenarios]
+        si_h_cert   = [results[s]['si_h_min_per_bit'] for s in scenarios]
 
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 6))
         x = np.arange(len(scenarios))
@@ -888,7 +894,7 @@ class ExperimentRunner:
                  max_workers: Optional[int] = None,
                  debug_mode:  bool = False):
         self.output_dir  = Path(output_dir)
-        self.max_workers = max_workers or os.cpu_count()
+        self.max_workers = max_workers or max(os.cpu_count() - 2, 1)
         self.debug_mode  = debug_mode
 
         self.output_dir.mkdir(exist_ok=True)
@@ -997,7 +1003,7 @@ class ExperimentRunner:
             for sc_name, sc_result in nist_results.items():
                 print(f"    NIST [{sc_name}]  pass_rate={sc_result['pass_rate']:.1%}")
 
-    def experiment_2_entropy_certification(self, n_bits: int = 3500000):
+    def experiment_2_entropy_certification(self, n_bits: int = 1000000):
         """Experiment 2: Entropy Certification vs Output Uniformity."""
         print("\n" + "=" * 80)
         print("EXPERIMENT 2: Entropy Certification vs Output Uniformity  [PARALLEL]")
@@ -1090,7 +1096,7 @@ class ExperimentRunner:
 
     def _compute_experiment_4b(self, n_bits: int = 1_000_000) -> Dict:
         """Pure compute: sweep bias levels, record TE vs SI extraction rates."""
-        bias_levels = [0.00, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45]
+        bias_levels = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45]
         task_args   = [(bias, n_bits) for bias in bias_levels]
 
         raw: Dict = {}
@@ -1134,7 +1140,10 @@ class ExperimentRunner:
     # ------------------------------------------------------------------
 
     def _compute_experiment_5(self, n_blocks: int) -> Dict:
-        """Pure compute: run the cosine-degradation time series (sequential)."""
+        """Pure compute: run the cosine-degradation time series (sequential).
+
+        C3 FIX: no print statements here — logging delegated to _log_exp5_results.
+        """
         results = {
             'block':           [],
             'trust_score':     [],
@@ -1149,14 +1158,27 @@ class ExperimentRunner:
         for block_idx in range(n_blocks):
             phase          = 2 * np.pi * block_idx / n_blocks
             source_quality = 0.5 + 0.5 * np.cos(phase)
-            bias           = 0.3 * (1 - source_quality)
+            bias           = 0.3 * (1 - source_quality) + 1e-6  # Add epsilon to avoid bias=0.0
             params         = BiasedParams(bias=bias)
             source         = QuantumSourceSimulator(params, seed=42 + block_idx)
 
             block  = source.generate_block(1000000)
-            _, metadata = te_qrng.process_block(
-                block.bits, block.bases, block.raw_signal
-            )
+            # B5 FIX: pass signal_stats so energy_constraint_test uses correct baseline
+            _sig_stats = source.get_signal_stats()
+            try:
+                _, metadata = te_qrng.process_block(
+                    block.bits, block.bases, block.raw_signal,
+                    signal_stats=_sig_stats,
+                )
+            except DiagnosticHaltError as exc:
+                print(f"  [HALT] Block {block_idx}: {exc}")
+                results['block'].append(block_idx)
+                results['trust_score'].append(0.0)
+                results['h_min_certified'].append(0.0)
+                results['extraction_rate'].append(0.0)
+                results['output_bits'].append(0)
+                results['source_quality'].append(source_quality)
+                break
 
             results['block'].append(block_idx)
             results['trust_score'].append(metadata['trust_score'])
@@ -1168,6 +1190,11 @@ class ExperimentRunner:
         return results
 
     def _log_exp5_results(self, results: Dict) -> None:
+        # E1 FIX: explicit scoping statement — Hoeffding bound is verified for
+        # consistency with known simulator parameters, not validated against an
+        # independent entropy estimator. This is inherent to simulation-only validation.
+        print("  [Scope] Hoeffding bound verified for consistency with simulator")
+        print("          parameters — not independently validated against ground truth.")
         for i, block_idx in enumerate(results['block']):
             if block_idx % 5 == 0:
                 print(f"  Block {block_idx}: Quality={results['source_quality'][i]:.3f}  "
@@ -1343,7 +1370,6 @@ class ExperimentRunner:
         exp4  = self.experiment_4_comparison_with_si_qrng()
         exp4b = self.experiment_4b_security_degradation()
         exp5  = self.experiment_5_temporal_adaptation()
-        exp7  = self.experiment_7_gating_validation()
 
         elapsed = time.time() - t0
         print("\n" + "=" * 80)
@@ -1356,8 +1382,7 @@ class ExperimentRunner:
                 'experiment_3':  exp3,
                 'experiment_4':  exp4,
                 'experiment_4b': exp4b,
-                'experiment_5':  exp5,
-                'experiment_7':  exp7}
+                'experiment_5':  exp5}
 
 
 # ---------------------------------------------------------------------------
@@ -1365,7 +1390,7 @@ class ExperimentRunner:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    runner = ExperimentRunner(output_dir="results")
+    runner = ExperimentRunner(output_dir="results", max_workers=2)
     all_results = runner.run_all_experiments()
 
     print("\n" + "=" * 80)
@@ -1377,4 +1402,3 @@ if __name__ == "__main__":
     print("  4. TE-SI-QRNG vs Standard SI-QRNG quality/quantity tradeoff")
     print("  4b. Security degradation: TE warns operator; SI-QRNG is silent on degrading source")
     print("  5. Temporal adaptation: trust tracks sinusoidal quality degradation")
-    print("  7. Gating validation: ε_gate ≤ |μ|·IMR(τ*/σ)/2 theorem verified (3 plots)")

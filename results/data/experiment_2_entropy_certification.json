@@ -1,0 +1,279 @@
+{
+  "small_bias": {
+    "empirical_h_output": 0.999999971146099,
+    "h_total_eat": 1273662.167892699,
+    "certified_output_bits": 1273622,
+    "delta_eat": 9104.717552562488,
+    "blocks_used": 3,
+    "sum_f_ei": 1282766.8854452614,
+    "h_total_progression": [
+      422062.77200435085,
+      847627.9325661687,
+      1273662.167892699
+    ],
+    "delta_progression": [
+      5255.622827668209,
+      7433.509847175563,
+      9104.717552562477
+    ],
+    "output_bits": 1000000,
+    "expected_bits": 1000000
+  },
+  "ideal": {
+    "empirical_h_output": 0.9999999233380696,
+    "h_total_eat": 1471677.3825738966,
+    "certified_output_bits": 1471637,
+    "delta_eat": 9102.826674150674,
+    "blocks_used": 3,
+    "sum_f_ei": 1480780.2092480473,
+    "h_total_progression": [
+      487966.68174206343,
+      979240.4319785847,
+      1471677.3825738966
+    ],
+    "delta_progression": [
+      5255.60705538193,
+      7433.535866756225,
+      9102.826674150769
+    ],
+    "output_bits": 1000000,
+    "expected_bits": 1000000
+  },
+  "large_bias": {
+    "empirical_h_output": 0.9999966531497797,
+    "h_total_eat": 1004994.426202393,
+    "certified_output_bits": 1004954,
+    "delta_eat": 10511.227254347228,
+    "blocks_used": 4,
+    "sum_f_ei": 1015505.6534567402,
+    "h_total_progression": [
+      248507.38245435295,
+      500563.64699762856,
+      753335.6142042412,
+      1004994.426202393
+    ],
+    "delta_progression": [
+      5255.6228276681795,
+      7433.509847175563,
+      9104.717552562477,
+      10511.227254347177
+    ],
+    "output_bits": 1000000,
+    "expected_bits": 1000000
+  },
+  "short_correlation": {
+    "empirical_h_output": 0.999999910622155,
+    "h_total_eat": 1473160.7521789148,
+    "certified_output_bits": 1473120,
+    "delta_eat": 9103.664415128944,
+    "blocks_used": 3,
+    "sum_f_ei": 1482264.4165940438,
+    "h_total_progression": [
+      488097.4255832627,
+      980543.8763019555,
+      1473160.7521789148
+    ],
+    "delta_progression": [
+      5252.093913513876,
+      7431.662224096828,
+      9103.664415128995
+    ],
+    "output_bits": 1000000,
+    "expected_bits": 1000000
+  },
+  "long_correlation": {
+    "empirical_h_output": 0.9999999584503824,
+    "h_total_eat": 1467881.142910326,
+    "certified_output_bits": 1467841,
+    "delta_eat": 9103.664415128944,
+    "blocks_used": 3,
+    "sum_f_ei": 1476984.807325455,
+    "h_total_progression": [
+      487273.4995013456,
+      976254.8174173433,
+      1467881.142910326
+    ],
+    "delta_progression": [
+      5252.093913513876,
+      7431.662224096828,
+      9103.664415128995
+    ],
+    "output_bits": 1000000,
+    "expected_bits": 1000000
+  },
+  "weak_attack": {
+    "empirical_h_output": 0.9999999519842232,
+    "h_total_eat": 1255531.801752441,
+    "certified_output_bits": 1255491,
+    "delta_eat": 9109.11088685889,
+    "blocks_used": 3,
+    "sum_f_ei": 1264640.9126392999,
+    "h_total_progression": [
+      416123.01086028724,
+      836616.0308476145,
+      1255531.801752441
+    ],
+    "delta_progression": [
+      5255.96980599151,
+      7439.562521738233,
+      9109.110886858776
+    ],
+    "output_bits": 1000000,
+    "expected_bits": 1000000
+  },
+  "strong_attack": {
+    "empirical_h_output": 0.9999999997662834,
+    "h_total_eat": 1171829.2972862988,
+    "certified_output_bits": 1171789,
+    "delta_eat": 10516.593720533727,
+    "blocks_used": 4,
+    "sum_f_ei": 1182345.8910068325,
+    "h_total_progression": [
+      290328.26860088226,
+      584527.6132413074,
+      877961.4772519862,
+      1171829.2972862988
+    ],
+    "delta_progression": [
+      5255.96980599151,
+      7439.562521738233,
+      9109.110886858893,
+      10516.593720533652
+    ],
+    "output_bits": 1000000,
+    "expected_bits": 1000000
+  },
+  "non_cooperative_weak": {
+    "empirical_h_output": 0.9999997556622688,
+    "h_total_eat": 1391863.523160689,
+    "certified_output_bits": 1391823,
+    "delta_eat": 9102.99665681549,
+    "blocks_used": 3,
+    "sum_f_ei": 1400966.5198175046,
+    "h_total_progression": [
+      461803.60665331327,
+      925368.8480426884,
+      1391863.523160689
+    ],
+    "delta_progression": [
+      5255.417784254649,
+      7430.799594880082,
+      9102.996656815521
+    ],
+    "output_bits": 1000000,
+    "expected_bits": 1000000
+  },
+  "non_cooperative_strong": {
+    "empirical_h_output": 0.9999990723786292,
+    "h_total_eat": 1160570.6410675533,
+    "certified_output_bits": 1160530,
+    "delta_eat": 9102.99665681549,
+    "blocks_used": 3,
+    "sum_f_ei": 1169673.6377243688,
+    "h_total_progression": [
+      385360.5064290763,
+      772212.2306084981,
+      1160570.6410675533
+    ],
+    "delta_progression": [
+      5255.417784254649,
+      7430.799594880082,
+      9102.996656815521
+    ],
+    "output_bits": 1000000,
+    "expected_bits": 1000000
+  },
+  "realistic_photon": {
+    "empirical_h_output": 0.9999996363686843,
+    "h_total_eat": 1323878.8197584082,
+    "certified_output_bits": 1323838,
+    "delta_eat": 8639.281830601278,
+    "blocks_used": 3,
+    "sum_f_ei": 1332518.1015890094,
+    "h_total_progression": [
+      438887.5093372354,
+      881100.5443969639,
+      1323878.8197584082
+    ],
+    "delta_progression": [
+      4986.835357899836,
+      7054.812313950388,
+      8639.281830601161
+    ],
+    "output_bits": 1000000,
+    "expected_bits": 1000000
+  },
+  "degraded_photon": {
+    "empirical_h_output": 0.9999999999538338,
+    "h_total_eat": 1031766.6641353569,
+    "certified_output_bits": 1031726,
+    "delta_eat": 7631.636919631547,
+    "blocks_used": 3,
+    "sum_f_ei": 1039398.3010549884,
+    "h_total_progression": [
+      342028.75585078634,
+      686608.082752769,
+      1031766.6641353569
+    ],
+    "delta_progression": [
+      4407.429724355345,
+      6231.920810756157,
+      7631.636919631506
+    ],
+    "output_bits": 1000000,
+    "expected_bits": 1000000
+  },
+  "phase_noise_clean": {
+    "empirical_h_output": 0.999999231747442,
+    "h_total_eat": 1473196.8915798408,
+    "certified_output_bits": 1473157,
+    "delta_eat": 9102.595978314064,
+    "blocks_used": 3,
+    "sum_f_ei": 1482299.4875581549,
+    "h_total_progression": [
+      489208.1452378591,
+      980656.7730206641,
+      1473196.8915798408
+    ],
+    "delta_progression": [
+      5255.901463587885,
+      7431.862994118477,
+      9102.595978314057
+    ],
+    "output_bits": 1000000,
+    "expected_bits": 1000000
+  },
+  "phase_noise_noisy": {
+    "empirical_h_output": 0.9999996585544524,
+    "h_total_eat": 1472385.262549444,
+    "certified_output_bits": 1472345,
+    "delta_eat": 9102.595978314064,
+    "blocks_used": 3,
+    "sum_f_ei": 1481487.8585277582,
+    "h_total_progression": [
+      488876.1782678536,
+      979787.9125041363,
+      1472385.262549444
+    ],
+    "delta_progression": [
+      5255.901463587885,
+      7431.862994118477,
+      9102.595978314057
+    ],
+    "output_bits": 1000000,
+    "expected_bits": 1000000
+  },
+  "temporal_drift": {
+    "empirical_h_output": 0.0,
+    "h_total_eat": 0.0,
+    "certified_output_bits": 0,
+    "delta_eat": 0.0,
+    "blocks_used": 0,
+    "sum_f_ei": 0.0,
+    "h_total_progression": [],
+    "delta_progression": [],
+    "output_bits": 0,
+    "expected_bits": 1000000,
+    "certification_failed": true
+  }
+}
