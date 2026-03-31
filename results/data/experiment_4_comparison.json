@@ -1,128 +1,119 @@
 {
   "ideal": {
-    "te_output_bits": 3500000,
-    "si_output_bits": 3500000,
-    "te_quality_score": 0.9994651396112653,
-    "si_quality_score": 0.9992826660112653,
-    "te_avg_trust": 0.966725369812802,
-    "te_h_min_per_bit": 0.9874473039327256,
-    "si_h_min_per_bit": 0.9877348814823548
+    "te_output_bits": 10000000,
+    "si_output_bits": 10000000,
+    "te_quality_score": 0.99979915835502,
+    "si_quality_score": 0.99961459491968,
+    "te_avg_trust": 0.9609899721989061,
+    "te_h_min_per_bit": 0.9930088908137744,
+    "si_h_min_per_bit": 0.9923619578675427
   },
   "small_bias": {
-    "te_output_bits": 3500000,
-    "si_output_bits": 3500000,
-    "te_quality_score": 0.9957332709288162,
-    "si_quality_score": 0.9949727097959185,
-    "te_avg_trust": 0.9258103223537822,
-    "te_h_min_per_bit": 0.8539865671997336,
-    "si_h_min_per_bit": 0.8528707321918332
+    "te_output_bits": 10000000,
+    "si_output_bits": 10000000,
+    "te_quality_score": 0.999802301152,
+    "si_quality_score": 0.99995810043218,
+    "te_avg_trust": 0.934283840025721,
+    "te_h_min_per_bit": 0.8834996869905258,
+    "si_h_min_per_bit": 0.8838075204044172
   },
   "large_bias": {
-    "te_output_bits": 3500000,
-    "si_output_bits": 3500000,
-    "te_quality_score": 0.9995507333903673,
-    "si_quality_score": 0.9993718002880001,
-    "te_avg_trust": 0.547340719324297,
-    "te_h_min_per_bit": 0.5069250073136036,
-    "si_h_min_per_bit": 0.5072568918065922
+    "te_output_bits": 10000000,
+    "si_output_bits": 10000000,
+    "te_quality_score": 0.99957603160098,
+    "si_quality_score": 0.99979487341182,
+    "te_avg_trust": 0.684481997383335,
+    "te_h_min_per_bit": 0.6049041309896599,
+    "si_h_min_per_bit": 0.6048458113959901
   },
   "short_correlation": {
-    "te_output_bits": 3500000,
-    "si_output_bits": 3500000,
-    "te_quality_score": 0.9992226471908572,
-    "si_quality_score": 0.9996133595918367,
-    "te_avg_trust": 0.8892042115749116,
-    "te_h_min_per_bit": 0.9880760364411143,
-    "si_h_min_per_bit": 0.9878175341996839
-  },
-  "long_correlation": {
-    "te_output_bits": 3500000,
-    "si_output_bits": 3500000,
-    "te_quality_score": 0.9992678630112652,
-    "si_quality_score": 0.9992845881340408,
-    "te_avg_trust": 0.4995075439920593,
-    "te_h_min_per_bit": 0.9842108082292236,
-    "si_h_min_per_bit": 0.9871730023013365
+    "te_output_bits": 10000000,
+    "si_output_bits": 10000000,
+    "te_quality_score": 0.9999042024640199,
+    "si_quality_score": 0.99975113185288,
+    "te_avg_trust": 0.9436885051100429,
+    "te_h_min_per_bit": 0.9928227848943001,
+    "si_h_min_per_bit": 0.9922163340556176
   },
   "weak_attack": {
-    "te_output_bits": 3500000,
-    "si_output_bits": 3500000,
-    "te_quality_score": 0.9984668252292246,
-    "si_quality_score": 0.9972882162287346,
-    "te_avg_trust": 0.9089026036523491,
-    "te_h_min_per_bit": 0.8415839491701441,
-    "si_h_min_per_bit": 0.8407458290410075
+    "te_output_bits": 10000000,
+    "si_output_bits": 10000000,
+    "te_quality_score": 0.9999377983295801,
+    "si_quality_score": 0.99985859213742,
+    "te_avg_trust": 0.9346012013365607,
+    "te_h_min_per_bit": 0.8887820986859667,
+    "si_h_min_per_bit": 0.8889618107698251
+  },
+  "long_correlation": {
+    "te_output_bits": 10000000,
+    "si_output_bits": 10000000,
+    "te_quality_score": 0.9997937854136799,
+    "si_quality_score": 0.99946361016818,
+    "te_avg_trust": 0.4990857791077657,
+    "te_h_min_per_bit": 0.9916069029331981,
+    "si_h_min_per_bit": 0.9912279444119195
   },
   "strong_attack": {
-    "te_output_bits": 3500000,
-    "si_output_bits": 3500000,
-    "te_quality_score": 0.9995839165346938,
-    "si_quality_score": 0.9993050010409795,
-    "te_avg_trust": 0.566830056127309,
-    "te_h_min_per_bit": 0.5903213056237543,
-    "si_h_min_per_bit": 0.5909208542651073
+    "te_output_bits": 10000000,
+    "si_output_bits": 10000000,
+    "te_quality_score": 0.9998492867155,
+    "si_quality_score": 0.99980939981182,
+    "te_avg_trust": 0.778648035841514,
+    "te_h_min_per_bit": 0.7290727647729515,
+    "si_h_min_per_bit": 0.7288359840841727
   },
   "non_cooperative_weak": {
-    "te_output_bits": 3500000,
-    "si_output_bits": 3500000,
-    "te_quality_score": 0.9992980882,
-    "si_quality_score": 0.9994122498235102,
-    "te_avg_trust": 0.9558162986133649,
-    "te_h_min_per_bit": 0.9332528982163355,
-    "si_h_min_per_bit": 0.9327783114971975
+    "te_output_bits": 10000000,
+    "si_output_bits": 10000000,
+    "te_quality_score": 0.9998592306033801,
+    "si_quality_score": 0.9999084016359201,
+    "te_avg_trust": 0.9505320749851272,
+    "te_h_min_per_bit": 0.9373507982268865,
+    "si_h_min_per_bit": 0.9377041754565736
   },
   "non_cooperative_strong": {
-    "te_output_bits": 3500000,
-    "si_output_bits": 3500000,
-    "te_quality_score": 0.9995344972610611,
-    "si_quality_score": 0.9995419990816327,
-    "te_avg_trust": 0.8810421757130034,
-    "te_h_min_per_bit": 0.779285659571212,
-    "si_h_min_per_bit": 0.7784259988935945
-  },
-  "realistic_photon": {
-    "te_output_bits": 3500000,
-    "si_output_bits": 3500000,
-    "te_quality_score": 0.9995033194448979,
-    "si_quality_score": 0.999693953792,
-    "te_avg_trust": 0.9664737799583485,
-    "te_h_min_per_bit": 0.9866593080842236,
-    "si_h_min_per_bit": 0.9875422298656559
+    "te_output_bits": 10000000,
+    "si_output_bits": 10000000,
+    "te_quality_score": 0.9995393956593799,
+    "si_quality_score": 0.9998778000051199,
+    "te_avg_trust": 0.8804061883363596,
+    "te_h_min_per_bit": 0.7824891963657149,
+    "si_h_min_per_bit": 0.7825052885957645
   },
   "degraded_photon": {
-    "te_output_bits": 3500000,
-    "si_output_bits": 3500000,
-    "te_quality_score": 0.9994064978938775,
-    "si_quality_score": 0.9997245893160817,
-    "te_avg_trust": 0.9661400933951249,
-    "te_h_min_per_bit": 0.9847034095332687,
-    "si_h_min_per_bit": 0.9848727292292095
+    "te_output_bits": 10000000,
+    "si_output_bits": 10000000,
+    "te_quality_score": 0.999619889918,
+    "si_quality_score": 0.999323949448,
+    "te_avg_trust": 0.5516920165066022,
+    "te_h_min_per_bit": 0.509790978821677,
+    "si_h_min_per_bit": 0.5099436412105509
+  },
+  "realistic_photon": {
+    "te_output_bits": 10000000,
+    "si_output_bits": 10000000,
+    "te_quality_score": 0.9995848172723201,
+    "si_quality_score": 0.99965108145262,
+    "te_avg_trust": 0.3057140819353825,
+    "te_h_min_per_bit": 0.1484767491904533,
+    "si_h_min_per_bit": 0.14840779385964323
   },
   "phase_noise_clean": {
-    "te_output_bits": 3500000,
-    "si_output_bits": 3500000,
-    "te_quality_score": 0.9995327573043264,
-    "si_quality_score": 0.9997577212140408,
-    "te_avg_trust": 0.9681426776249626,
-    "te_h_min_per_bit": 0.9875646849814795,
-    "si_h_min_per_bit": 0.9873782405375215
+    "te_output_bits": 10000000,
+    "si_output_bits": 10000000,
+    "te_quality_score": 0.9998308782012799,
+    "si_quality_score": 0.9996567215245,
+    "te_avg_trust": 0.9609306575267933,
+    "te_h_min_per_bit": 0.9922291528115431,
+    "si_h_min_per_bit": 0.9931011014733432
   },
   "phase_noise_noisy": {
-    "te_output_bits": 3500000,
-    "si_output_bits": 3500000,
-    "te_quality_score": 0.9996191425826939,
-    "si_quality_score": 0.9997122860749388,
-    "te_avg_trust": 0.9683082007565621,
-    "te_h_min_per_bit": 0.9874416812860958,
-    "si_h_min_per_bit": 0.9874392976555078
-  },
-  "temporal_drift": {
-    "te_output_bits": 0,
-    "si_output_bits": 0,
-    "te_quality_score": 0.0,
-    "si_quality_score": 0.0,
-    "te_avg_trust": 0.0,
-    "te_h_min_per_bit": 0.0,
-    "si_h_min_per_bit": 0.0
+    "te_output_bits": 10000000,
+    "si_output_bits": 10000000,
+    "te_quality_score": 0.9999459035785799,
+    "si_quality_score": 0.999779316928,
+    "te_avg_trust": 0.9609125632293362,
+    "te_h_min_per_bit": 0.992419025701755,
+    "si_h_min_per_bit": 0.9930887843089016
   }
 }

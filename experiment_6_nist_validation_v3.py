@@ -57,7 +57,7 @@ import matplotlib.patches as mpatches
 import numpy as np
 
 from config import DEFAULT_N_BITS, DEFAULT_BLOCK_SIZE
-from D_v16 import TrustEnhancedQRNG, EATConvergenceWarning, InsufficientEntropyError
+from D_v16 import TrustEnhancedQRNG, EATConvergenceWarning, InsufficientEntropyError, DiagnosticHaltError
 from New_simulator_v9 import (
     QuantumSourceSimulator,
     create_test_scenarios,
@@ -86,13 +86,25 @@ def _worker_post_extraction(args) -> Tuple[str, Dict]:
     """
     scenario_name, params, n_bits = args
 
-    source  = QuantumSourceSimulator(params, seed=42)
-    te_qrng = TrustEnhancedQRNG(block_size=DEFAULT_BLOCK_SIZE)
+    source     = QuantumSourceSimulator(params, seed=42)
+    block_size = min(DEFAULT_BLOCK_SIZE, n_bits)
+    te_qrng    = TrustEnhancedQRNG(block_size=block_size)
 
     try:
         output_bits, metadata_list = te_qrng.generate_certified_random_bits(
             n_bits=n_bits, source_simulator=source
         )
+    except DiagnosticHaltError as exc:
+        print(f"  [Exp2-NIST] HALT for '{scenario_name}': {exc}")
+        return scenario_name, {
+            "p_values":    [None] * N_TESTS,
+            "passed":      [None] * N_TESTS,
+            "pass_rate":   0.0,
+            "n_bits":      0,
+            "h_total_eat": 0.0,
+            "backend":     "TE-SI-QRNG",
+            "halted":      True,
+        }
     except MemoryError as exc:
         raise RuntimeError(
             f"MemoryError in _worker_post_extraction scenario '{scenario_name}' "
@@ -163,9 +175,10 @@ def _worker_attack_sweep(args) -> Tuple[float, Dict]:
     """
     attack_strength, n_bits = args
 
-    params  = AttackedParams(attack_strength=attack_strength)
-    source  = QuantumSourceSimulator(params, seed=42)
-    te_qrng = TrustEnhancedQRNG(block_size=DEFAULT_BLOCK_SIZE)
+    params     = AttackedParams(attack_strength=attack_strength)
+    source     = QuantumSourceSimulator(params, seed=42)
+    block_size = min(DEFAULT_BLOCK_SIZE, n_bits)
+    te_qrng    = TrustEnhancedQRNG(block_size=block_size)
 
     raw_block = source.generate_block(n_bits)
     raw_bits  = raw_block.bits[:n_bits]

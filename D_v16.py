@@ -103,7 +103,7 @@ Security invariants (unchanged throughout all versions)
   trust_score      → warn / halt only              (NEVER modifies entropy or extraction)
   EAT              Δ_EAT = 2·√t·√(ln(1/ε_EAT))    (unchanged)
 """
-
+import uuid
 import numpy as np
 from scipy import stats
 from dataclasses import dataclass, field
@@ -610,11 +610,11 @@ class EntropyEstimator:
     Certifies min-entropy from observable BB84 statistics.
     """
 
-    def __init__(self, security_parameter: float = 1e-6):
+    def __init__(self, security_parameter: float = 3e-6):
         self.epsilon_total  = security_parameter
-        self.epsilon_eat    = security_parameter
-        self.epsilon_smooth = security_parameter
-        self.epsilon_ext    = security_parameter
+        self.epsilon_eat    = security_parameter / 3
+        self.epsilon_smooth = security_parameter / 3
+        self.epsilon_ext    = security_parameter / 3
 
     def certify_min_entropy(self,
                             bits:  np.ndarray,
@@ -856,9 +856,11 @@ class GenerationBitSpool:
     """Append generation bits to disk and expose a read-only memmap view."""
 
     def __init__(self):
-        tmp = tempfile.NamedTemporaryFile(prefix="te_qrng_gen_", suffix=".bin", delete=False)
-        self.path = Path(tmp.name)
-        tmp.close()
+        import uuid
+        _work_dir = Path(__file__).parent / "temp_work"
+        _work_dir.mkdir(exist_ok=True)
+        self.path = _work_dir / f"te_qrng_gen_{uuid.uuid4().hex}.bin"
+        self.path.touch()
         self.total_bits = 0
 
     def append(self, bits: np.ndarray) -> None:
@@ -1091,11 +1093,11 @@ class CertifiedGenerationSession:
         session = QRNGSessionState()
 
         gen_spool = GenerationBitSpool()
-        metadata_tmp = tempfile.NamedTemporaryFile(
-            prefix="te_qrng_meta_", suffix=".jsonl", delete=False
-        )
-        metadata_path = Path(metadata_tmp.name)
-        metadata_tmp.close()
+        import uuid
+        _work_dir = Path(__file__).parent / "temp_work"
+        _work_dir.mkdir(exist_ok=True)
+        metadata_path = _work_dir / f"te_qrng_meta_{uuid.uuid4().hex}.jsonl"
+        metadata_path.touch()
         metadata_count = 0
 
         block_size = self.te_qrng.block_size
@@ -1172,7 +1174,7 @@ class CertifiedGenerationSession:
 
             # S4 FIX: seed independent of source bits — use os.urandom()
             import os as _os
-            seed_len  = min(2 * output_length, 512)
+            seed_len  = 2 * output_length
             seed_arr  = np.unpackbits(
                 np.frombuffer(_os.urandom((seed_len + 7) // 8), dtype=np.uint8)
             )[:seed_len]
@@ -1212,9 +1214,15 @@ class CertifiedGenerationSession:
                 os.fsync(meta_fh.fileno())
             metadata_count += 1
 
-            return final_bits[:n_bits], DiskBackedMetadataList(metadata_path, metadata_count)
+            # Read all metadata into memory BEFORE finally deletes the file
+            metadata_records = list(DiskBackedMetadataList(metadata_path, metadata_count))
+            return final_bits[:n_bits], metadata_records
         finally:
             gen_spool.cleanup()
+            try:
+              metadata_path.unlink(missing_ok=True)
+            except OSError:
+              pass
 
 
 # ---------------------------------------------------------------------------
@@ -1504,9 +1512,10 @@ class TrustEnhancedQRNG:
         return trust_vector, diagnostic_warning
 
     def _extract_block(self,
-                       gen_bits:      np.ndarray,
+                       gen_bits:        np.ndarray,
                        h_min_certified: float,
-                       seed:          Optional[np.ndarray],
+                       seed:            Optional[np.ndarray],
+                       output_length:   Optional[int] = None,
                        ) -> Tuple[np.ndarray, int]:
         """
         Steps 6 + 8–9: LHL output length, seed derivation, Toeplitz extraction.
@@ -1519,7 +1528,8 @@ class TrustEnhancedQRNG:
         """
         n_gen = len(gen_bits)
 
-        output_length = self.entropy_estimator.lhl_output_length(n_gen, h_min_certified)
+        if output_length is None:
+            output_length = self.entropy_estimator.lhl_output_length(n_gen, h_min_certified)
 
         if output_length < 1 or n_gen < 2:
             raise InsufficientEntropyError(
@@ -1531,7 +1541,7 @@ class TrustEnhancedQRNG:
         # S4 FIX: seed independent of source bits — use os.urandom()
         if seed is None:
             import os as _os
-            seed_len      = min(2 * output_length, 512)
+            seed_len      = 2 * output_length
             seed_arr      = np.unpackbits(
                 np.frombuffer(_os.urandom((seed_len + 7) // 8), dtype=np.uint8)
             )[:seed_len]
@@ -1662,7 +1672,9 @@ class TrustEnhancedQRNG:
             signal_stats, c['h_min_certified'],
         )
 
-        # Compute extraction_rate for metadata
+       # Compute extraction_rate for metadata (single LHL call — _extract_block
+        # previously called lhl_output_length again internally, now it receives
+        # the already-computed output_length to avoid the duplicate call)
         output_length   = self.entropy_estimator.lhl_output_length(
             c['n_gen'], c['h_min_certified']
         )
@@ -1670,7 +1682,7 @@ class TrustEnhancedQRNG:
 
         # Layer 3 — Extraction layer (may raise InsufficientEntropyError)
         output_bits, _ = self._extract_block(
-            c['gen_bits'], c['h_min_certified'], seed
+            c['gen_bits'], c['h_min_certified'], seed, output_length=output_length
         )
 
         # Pack cert_bundle for _assemble_metadata

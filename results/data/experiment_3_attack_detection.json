@@ -2,443 +2,371 @@
   "no_attack": [
     {
       "block": 0,
-      "trust_score": 0.9674070330203053,
-      "h_total_eat": 487966.68174206343,
-      "delta_eat": 5255.60705538193,
-      "extraction_rate": 0.9867073741662098,
-      "certified_output_bits": 3933629
+      "trust_score": 0.9610352579565028,
+      "h_total_eat": 1480302.7634446276,
+      "delta_eat": 9460.844862695783,
+      "extraction_rate": 0.9928931479495569,
+      "certified_output_bits": 10403307
     },
     {
       "block": 1,
-      "trust_score": 0.9667410432398766,
-      "h_total_eat": 979240.4319785847,
-      "delta_eat": 7433.535866756225,
-      "extraction_rate": 0.9866424310775439,
-      "certified_output_bits": 3933629
+      "trust_score": 0.961215406829881,
+      "h_total_eat": 2967471.2473706547,
+      "delta_eat": 13380.502251362428,
+      "extraction_rate": 0.9935246271396616,
+      "certified_output_bits": 10403307
     },
     {
       "block": 2,
-      "trust_score": 0.96671284425404,
-      "h_total_eat": 1471677.3825738966,
-      "delta_eat": 9102.826674150769,
-      "extraction_rate": 0.9890993391536923,
-      "certified_output_bits": 3933629
+      "trust_score": 0.9610493385289388,
+      "h_total_eat": 4453449.110708667,
+      "delta_eat": 16386.43826897908,
+      "extraction_rate": 0.9927067450107642,
+      "certified_output_bits": 10403307
     },
     {
       "block": 3,
-      "trust_score": 0.9669721946528875,
-      "h_total_eat": 1964595.3458055912,
-      "delta_eat": 10511.731955517083,
-      "extraction_rate": 0.9884296892653672,
-      "certified_output_bits": 3933629
+      "trust_score": 0.9610089424201096,
+      "h_total_eat": 5940446.571400334,
+      "delta_eat": 18920.630351596512,
+      "extraction_rate": 0.993101241136525,
+      "certified_output_bits": 10403307
     },
     {
       "block": 4,
-      "trust_score": 0.9675192542941895,
-      "h_total_eat": 2456993.1243062136,
-      "delta_eat": 11751.062285595573,
-      "extraction_rate": 0.9886275098893396,
-      "certified_output_bits": 3933629
+      "trust_score": 0.9607774480432083,
+      "h_total_eat": 7429169.58707735,
+      "delta_eat": 21154.803189801984,
+      "extraction_rate": 0.9933797514741647,
+      "certified_output_bits": 10403307
     },
     {
       "block": 5,
-      "trust_score": 0.966827496112767,
-      "h_total_eat": 2949147.3757507387,
-      "delta_eat": 12872.540315629449,
-      "extraction_rate": 0.9870484103684759,
-      "certified_output_bits": 3933629
+      "trust_score": 0.9607764005878435,
+      "h_total_eat": 8915731.620349303,
+      "delta_eat": 23172.359302606434,
+      "extraction_rate": 0.9929365463186859,
+      "certified_output_bits": 10403307
     },
     {
       "block": 6,
-      "trust_score": 0.9654869957950422,
-      "h_total_eat": 3440501.1883524847,
-      "delta_eat": 13904.365541870706,
-      "extraction_rate": 0.9847589331253188,
-      "certified_output_bits": 3933629
-    },
-    {
-      "block": 7,
-      "trust_score": 0.9661360971333072,
-      "h_total_eat": 3933669.43578668,
-      "delta_eat": 14865.33018119121,
-      "extraction_rate": 0.9876190076416748,
-      "certified_output_bits": 3933629
+      "trust_score": 0.961067011025859,
+      "h_total_eat": 10403350.910003074,
+      "delta_eat": 25029.99283345975,
+      "extraction_rate": 0.99231694276682,
+      "certified_output_bits": 10403307
     }
   ],
   "weak_attack": [
     {
       "block": 0,
-      "trust_score": 0.9098574529567209,
-      "h_total_eat": 416123.01086028724,
-      "delta_eat": 5255.96980599151,
-      "extraction_rate": 0.8428549995499055,
-      "certified_output_bits": 3771683
+      "trust_score": 0.9339836758953406,
+      "h_total_eat": 1324560.8347908126,
+      "delta_eat": 9461.58574402146,
+      "extraction_rate": 0.8889530846624524,
+      "certified_output_bits": 10639535
     },
     {
       "block": 1,
-      "trust_score": 0.9058256783746004,
-      "h_total_eat": 836616.0308476145,
-      "delta_eat": 7439.562521738233,
-      "extraction_rate": 0.8425018539043625,
-      "certified_output_bits": 3771683
+      "trust_score": 0.9349566019306746,
+      "h_total_eat": 2653400.5890878523,
+      "delta_eat": 13376.228130707517,
+      "extraction_rate": 0.8892974894752541,
+      "certified_output_bits": 10639535
     },
     {
       "block": 2,
-      "trust_score": 0.9102099392790043,
-      "h_total_eat": 1255531.801752441,
-      "delta_eat": 9109.110886858776,
-      "extraction_rate": 0.8411572925834067,
-      "certified_output_bits": 3771683
+      "trust_score": 0.9346679304144574,
+      "h_total_eat": 3983649.916633759,
+      "delta_eat": 16384.383020556066,
+      "extraction_rate": 0.8884142851145524,
+      "certified_output_bits": 10639535
     },
     {
       "block": 3,
-      "trust_score": 0.9069173689541485,
-      "h_total_eat": 1675259.9083551837,
-      "delta_eat": 10516.593720533652,
-      "extraction_rate": 0.8424393620511671,
-      "certified_output_bits": 3771683
+      "trust_score": 0.9348272434468847,
+      "h_total_eat": 5314591.349689206,
+      "delta_eat": 18920.20627016481,
+      "extraction_rate": 0.8885443078040508,
+      "certified_output_bits": 10639535
     },
     {
       "block": 4,
-      "trust_score": 0.9117607938997933,
-      "h_total_eat": 2095799.7919889914,
-      "delta_eat": 11757.663060937775,
-      "extraction_rate": 0.8430891204698611,
-      "certified_output_bits": 3771683
+      "trust_score": 0.9339984879948988,
+      "h_total_eat": 6643684.144558717,
+      "delta_eat": 21153.586325896904,
+      "extraction_rate": 0.8873705554252075,
+      "certified_output_bits": 10639535
     },
     {
       "block": 5,
-      "trust_score": 0.9111438392144007,
-      "h_total_eat": 2515459.764766868,
-      "delta_eat": 12876.817597049288,
-      "extraction_rate": 0.8433468566343016,
-      "certified_output_bits": 3771683
+      "trust_score": 0.9343557646633042,
+      "h_total_eat": 7973158.09196672,
+      "delta_eat": 23171.53288372606,
+      "extraction_rate": 0.8880191763608933,
+      "certified_output_bits": 10639535
     },
     {
       "block": 6,
-      "trust_score": 0.9140142483814844,
-      "h_total_eat": 2934351.5517430473,
-      "delta_eat": 13908.39503837889,
-      "extraction_rate": 0.839766,
-      "certified_output_bits": 3771683
+      "trust_score": 0.9342267167026183,
+      "h_total_eat": 9306573.174702348,
+      "delta_eat": 25029.08354974538,
+      "extraction_rate": 0.8896520890912046,
+      "certified_output_bits": 10639535
     },
     {
       "block": 7,
-      "trust_score": 0.9102485016284939,
-      "h_total_eat": 3353386.47846962,
-      "delta_eat": 14868.342919313349,
-      "extraction_rate": 0.840118349350639,
-      "certified_output_bits": 3771683
-    },
-    {
-      "block": 8,
-      "trust_score": 0.9001456101824957,
-      "h_total_eat": 3771723.1376254065,
-      "delta_eat": 15770.327486508526,
-      "extraction_rate": 0.8382568493630057,
-      "certified_output_bits": 3771683
+      "trust_score": 0.9357931896443065,
+      "h_total_eat": 10639578.11946334,
+      "delta_eat": 26757.08634040132,
+      "extraction_rate": 0.889773684828057,
+      "certified_output_bits": 10639535
     }
   ],
   "medium_attack": [
     {
       "block": 0,
-      "trust_score": 0.7721691929085381,
-      "h_total_eat": 350324.63356622495,
-      "delta_eat": 5255.96980599151,
-      "extraction_rate": 0.7112293581652147,
-      "certified_output_bits": 3529917
+      "trust_score": 0.8738621363709993,
+      "h_total_eat": 1194587.9930771475,
+      "delta_eat": 9461.58574402146,
+      "extraction_rate": 0.8023401025444183,
+      "certified_output_bits": 10797210
     },
     {
       "block": 1,
-      "trust_score": 0.7571979925393826,
-      "h_total_eat": 704535.550515896,
-      "delta_eat": 7439.562521738233,
-      "extraction_rate": 0.7103722958911101,
-      "certified_output_bits": 3529917
+      "trust_score": 0.8743263624568604,
+      "h_total_eat": 2392898.0913596977,
+      "delta_eat": 13376.228130707517,
+      "extraction_rate": 0.8021968342685326,
+      "certified_output_bits": 10797210
     },
     {
       "block": 2,
-      "trust_score": 0.7632873221674512,
-      "h_total_eat": 1057450.7021993133,
-      "delta_eat": 9109.110886858776,
-      "extraction_rate": 0.7091447315785263,
-      "certified_output_bits": 3529917
+      "trust_score": 0.8739335460112069,
+      "h_total_eat": 3592211.638436758,
+      "delta_eat": 16384.383020556066,
+      "extraction_rate": 0.8011624164454872,
+      "certified_output_bits": 10797210
     },
     {
       "block": 3,
-      "trust_score": 0.7587256998222958,
-      "h_total_eat": 1411444.9586815892,
-      "delta_eat": 10516.593720533652,
-      "extraction_rate": 0.7109324360010563,
-      "certified_output_bits": 3529917
+      "trust_score": 0.875164945170737,
+      "h_total_eat": 4792316.798586207,
+      "delta_eat": 18920.20627016481,
+      "extraction_rate": 0.8013600365164141,
+      "certified_output_bits": 10797210
     },
     {
       "block": 4,
-      "trust_score": 0.787127704597547,
-      "h_total_eat": 1765314.0557447772,
-      "delta_eat": 11757.663060937775,
-      "extraction_rate": 0.709809228899333,
-      "certified_output_bits": 3529917
+      "trust_score": 0.8732604215610404,
+      "h_total_eat": 5990807.239635363,
+      "delta_eat": 21153.586325896904,
+      "extraction_rate": 0.8003167459420258,
+      "certified_output_bits": 10797210
     },
     {
       "block": 5,
-      "trust_score": 0.7718467939031445,
-      "h_total_eat": 2118962.672465927,
-      "delta_eat": 12876.817597049288,
-      "extraction_rate": 0.7110296416859762,
-      "certified_output_bits": 3529917
+      "trust_score": 0.8726952644860518,
+      "h_total_eat": 7189888.398695619,
+      "delta_eat": 23171.53288372606,
+      "extraction_rate": 0.8010532592210203,
+      "certified_output_bits": 10797210
     },
     {
       "block": 6,
-      "trust_score": 0.7882209217665169,
-      "h_total_eat": 2472474.8414820884,
-      "delta_eat": 13908.39503837889,
-      "extraction_rate": 0.709006,
-      "certified_output_bits": 3529917
+      "trust_score": 0.8732028543561732,
+      "h_total_eat": 8392525.40528151,
+      "delta_eat": 25029.08354974538,
+      "extraction_rate": 0.8025157844519484,
+      "certified_output_bits": 10797210
     },
     {
       "block": 7,
-      "trust_score": 0.7693455718607497,
-      "h_total_eat": 2825303.0122638075,
-      "delta_eat": 14868.342919313349,
-      "extraction_rate": 0.7076715025326281,
-      "certified_output_bits": 3529917
+      "trust_score": 0.8760522283783326,
+      "h_total_eat": 9594878.471123401,
+      "delta_eat": 26757.08634040132,
+      "extraction_rate": 0.8026748762693062,
+      "certified_output_bits": 10797210
     },
     {
       "block": 8,
-      "trust_score": 0.7505498486473202,
-      "h_total_eat": 3177543.2704195217,
-      "delta_eat": 15770.327486508526,
-      "extraction_rate": 0.7060867895929276,
-      "certified_output_bits": 3529917
-    },
-    {
-      "block": 9,
-      "trust_score": 0.7650422705033199,
-      "h_total_eat": 3529957.62846093,
-      "delta_eat": 16622.147507655434,
-      "extraction_rate": 0.7074367519587266,
-      "certified_output_bits": 3529917
+      "trust_score": 0.8723667265311725,
+      "h_total_eat": 10797253.491075467,
+      "delta_eat": 28379.99856466241,
+      "extraction_rate": 0.8026547286103343,
+      "certified_output_bits": 10797210
     }
   ],
   "strong_attack": [
     {
       "block": 0,
-      "trust_score": 0.5662197819182611,
-      "h_total_eat": 290328.26860088226,
-      "delta_eat": 5255.96980599151,
-      "extraction_rate": 0.591212154552456,
-      "certified_output_bits": 3523954
+      "trust_score": 0.7786567208167974,
+      "h_total_eat": 1085267.5656141045,
+      "delta_eat": 9461.58574402146,
+      "extraction_rate": 0.7294901167385703,
+      "certified_output_bits": 10908103
     },
     {
       "block": 1,
-      "trust_score": 0.5495707857643093,
-      "h_total_eat": 584527.6132413074,
-      "delta_eat": 7439.562521738233,
-      "extraction_rate": 0.5907436349283556,
-      "certified_output_bits": 3523954
+      "trust_score": 0.7797563021379277,
+      "h_total_eat": 2174577.8045149446,
+      "delta_eat": 13376.228130707517,
+      "extraction_rate": 0.7294628159008575,
+      "certified_output_bits": 10908103
     },
     {
       "block": 2,
-      "trust_score": 0.5527735282540942,
-      "h_total_eat": 877961.4772519862,
-      "delta_eat": 9109.110886858893,
-      "extraction_rate": 0.5901732138571085,
-      "certified_output_bits": 3523954
+      "trust_score": 0.7793667860742944,
+      "h_total_eat": 3264337.480756226,
+      "delta_eat": 16384.383020556066,
+      "extraction_rate": 0.728158878685278,
+      "certified_output_bits": 10908103
     },
     {
       "block": 3,
-      "trust_score": 0.5621776912459904,
-      "h_total_eat": 1171829.2972862988,
-      "delta_eat": 10516.593720533652,
-      "extraction_rate": 0.5906448308699375,
-      "certified_output_bits": 3523954
+      "trust_score": 0.7791398324467902,
+      "h_total_eat": 4356128.867477701,
+      "delta_eat": 18920.20627016481,
+      "extraction_rate": 0.7291848110375526,
+      "certified_output_bits": 10908103
     },
     {
       "block": 4,
-      "trust_score": 0.5990358241027991,
-      "h_total_eat": 1466164.1093261673,
-      "delta_eat": 11757.663060937775,
-      "extraction_rate": 0.5907966887430457,
-      "certified_output_bits": 3523954
+      "trust_score": 0.777052636702638,
+      "h_total_eat": 5445825.342881507,
+      "delta_eat": 21153.586325896904,
+      "extraction_rate": 0.7277997888360387,
+      "certified_output_bits": 10908103
     },
     {
       "block": 5,
-      "trust_score": 0.5655519543665752,
-      "h_total_eat": 1760408.1538771705,
-      "delta_eat": 12876.817597049056,
-      "extraction_rate": 0.5919577784370165,
-      "certified_output_bits": 3523954
+      "trust_score": 0.7777809850745967,
+      "h_total_eat": 6536117.095175796,
+      "delta_eat": 23171.53288372606,
+      "extraction_rate": 0.7284949571346441,
+      "certified_output_bits": 10908103
     },
     {
       "block": 6,
-      "trust_score": 0.5891368835219503,
-      "h_total_eat": 2054246.2750442997,
-      "delta_eat": 13908.39503837889,
-      "extraction_rate": 0.589658,
-      "certified_output_bits": 3523954
+      "trust_score": 0.7766186198737193,
+      "h_total_eat": 7629170.211769514,
+      "delta_eat": 25029.08354974538,
+      "extraction_rate": 0.72950086751188,
+      "certified_output_bits": 10908103
     },
     {
       "block": 7,
-      "trust_score": 0.5572718169665719,
-      "h_total_eat": 2348183.08529183,
-      "delta_eat": 14868.342919313349,
-      "extraction_rate": 0.589858284854644,
-      "certified_output_bits": 3523954
+      "trust_score": 0.7825301101251596,
+      "h_total_eat": 8722501.767641392,
+      "delta_eat": 26757.08634040132,
+      "extraction_rate": 0.7299950934380066,
+      "certified_output_bits": 10908103
     },
     {
       "block": 8,
-      "trust_score": 0.5511159269959809,
-      "h_total_eat": 2640800.212572724,
-      "delta_eat": 15770.327486508526,
-      "extraction_rate": 0.5868605811435301,
-      "certified_output_bits": 3523954
+      "trust_score": 0.7768635976389251,
+      "h_total_eat": 9814804.189653186,
+      "delta_eat": 28379.99856466241,
+      "extraction_rate": 0.7292716830059368,
+      "certified_output_bits": 10908103
     },
     {
       "block": 9,
-      "trust_score": 0.558711824699976,
-      "h_total_eat": 2934249.96631123,
-      "delta_eat": 16622.147507655434,
-      "extraction_rate": 0.5893423645714835,
-      "certified_output_bits": 3523954
-    },
-    {
-      "block": 10,
-      "trust_score": 0.597637059216223,
-      "h_total_eat": 3229360.378504345,
-      "delta_eat": 17434.38429156132,
-      "extraction_rate": 0.5911019657983059,
-      "certified_output_bits": 3523954
-    },
-    {
-      "block": 11,
-      "trust_score": 0.5527575964749765,
-      "h_total_eat": 3523994.674857456,
-      "delta_eat": 18209.837212038692,
-      "extraction_rate": 0.5905372173461023,
-      "certified_output_bits": 3523954
+      "trust_score": 0.778714767524292,
+      "h_total_eat": 10908146.624072306,
+      "delta_eat": 29916.696702796966,
+      "extraction_rate": 0.729078473247469,
+      "certified_output_bits": 10908103
     }
   ],
   "very_strong_attack": [
     {
       "block": 0,
-      "trust_score": 0.3847268935102154,
-      "h_total_eat": 236146.15339703189,
-      "delta_eat": 5255.969805991481,
-      "extraction_rate": 0.48282539333259983,
-      "certified_output_bits": 3600566
+      "trust_score": 0.6768929966381536,
+      "h_total_eat": 994229.7431076205,
+      "delta_eat": 9461.58574402146,
+      "extraction_rate": 0.6688231115447102,
+      "certified_output_bits": 10993907
     },
     {
       "block": 1,
-      "trust_score": 0.38339247569515966,
-      "h_total_eat": 476472.73306685,
-      "delta_eat": 7439.562521738233,
-      "extraction_rate": 0.4833507427578123,
-      "certified_output_bits": 3600566
+      "trust_score": 0.6765777956295627,
+      "h_total_eat": 1993104.0580553443,
+      "delta_eat": 13376.228130707517,
+      "extraction_rate": 0.6691162683311414,
+      "certified_output_bits": 10993907
     },
     {
       "block": 2,
-      "trust_score": 0.38863502487299795,
-      "h_total_eat": 716340.7481530858,
-      "delta_eat": 9109.110886858893,
-      "extraction_rate": 0.48303264261140894,
-      "certified_output_bits": 3600566
+      "trust_score": 0.6776185428899071,
+      "h_total_eat": 2992271.532868123,
+      "delta_eat": 16384.383020556066,
+      "extraction_rate": 0.6677910555772867,
+      "certified_output_bits": 10993907
     },
     {
       "block": 3,
-      "trust_score": 0.3851244941787654,
-      "h_total_eat": 956646.5552558632,
-      "delta_eat": 10516.593720533769,
-      "extraction_rate": 0.4834891127773821,
-      "certified_output_bits": 3600566
+      "trust_score": 0.676165372267694,
+      "h_total_eat": 3992371.481371348,
+      "delta_eat": 18920.20627016481,
+      "extraction_rate": 0.6680851205608068,
+      "certified_output_bits": 10993907
     },
     {
       "block": 4,
-      "trust_score": 0.4254057168068822,
-      "h_total_eat": 1196754.4747978062,
-      "delta_eat": 11757.663060937775,
-      "extraction_rate": 0.48239320476657876,
-      "certified_output_bits": 3600566
+      "trust_score": 0.6741324887666147,
+      "h_total_eat": 4991452.96235226,
+      "delta_eat": 21153.586325896904,
+      "extraction_rate": 0.6674000970501035,
+      "certified_output_bits": 10993907
     },
     {
       "block": 5,
-      "trust_score": 0.3930743218638608,
-      "h_total_eat": 1437247.5964944677,
-      "delta_eat": 12876.817597049056,
-      "extraction_rate": 0.4842170249272388,
-      "certified_output_bits": 3600566
+      "trust_score": 0.6752385293509273,
+      "h_total_eat": 5989956.964726906,
+      "delta_eat": 23171.53288372606,
+      "extraction_rate": 0.6672762657852157,
+      "certified_output_bits": 10993907
     },
     {
       "block": 6,
-      "trust_score": 0.41174160398591153,
-      "h_total_eat": 1677183.224379539,
-      "delta_eat": 13908.39503837889,
-      "extraction_rate": 0.481854,
-      "certified_output_bits": 3600566
+      "trust_score": 0.6737287236903742,
+      "h_total_eat": 6991503.596998008,
+      "delta_eat": 25029.08354974538,
+      "extraction_rate": 0.6685311731265874,
+      "certified_output_bits": 10993907
     },
     {
       "block": 7,
-      "trust_score": 0.38786517990962244,
-      "h_total_eat": 1916833.846331,
-      "delta_eat": 14868.342919313349,
-      "extraction_rate": 0.4812593523193752,
-      "certified_output_bits": 3600566
+      "trust_score": 0.6785478840371167,
+      "h_total_eat": 7993632.291164447,
+      "delta_eat": 26757.08634040039,
+      "extraction_rate": 0.6691943905196689,
+      "certified_output_bits": 10993907
     },
     {
       "block": 8,
-      "trust_score": 0.3863628371096026,
-      "h_total_eat": 2155679.888387008,
-      "delta_eat": 15770.327486508526,
-      "extraction_rate": 0.4793364301525947,
-      "certified_output_bits": 3600566
+      "trust_score": 0.6734703012974796,
+      "h_total_eat": 8994626.479316907,
+      "delta_eat": 28379.99856466241,
+      "extraction_rate": 0.6683982626261279,
+      "certified_output_bits": 10993907
     },
     {
       "block": 9,
-      "trust_score": 0.38939895414590764,
-      "h_total_eat": 2395253.030363658,
-      "delta_eat": 16622.147507655434,
-      "extraction_rate": 0.4814401647092753,
-      "certified_output_bits": 3600566
+      "trust_score": 0.6769890269389232,
+      "h_total_eat": 9996676.02101759,
+      "delta_eat": 29916.696702796966,
+      "extraction_rate": 0.6682841980700167,
+      "certified_output_bits": 10993907
     },
     {
       "block": 10,
-      "trust_score": 0.40927081450417124,
-      "h_total_eat": 2635863.8361469847,
-      "delta_eat": 17434.38429156132,
-      "extraction_rate": 0.4822259069841777,
-      "certified_output_bits": 3600566
-    },
-    {
-      "block": 11,
-      "trust_score": 0.3829012124004336,
-      "h_total_eat": 2876729.720396295,
-      "delta_eat": 18209.837212038692,
-      "extraction_rate": 0.4830377671591659,
-      "certified_output_bits": 3600566
-    },
-    {
-      "block": 12,
-      "trust_score": 0.3922235966623425,
-      "h_total_eat": 3118041.9670393276,
-      "delta_eat": 18953.8994010468,
-      "extraction_rate": 0.483662481863856,
-      "certified_output_bits": 3600566
-    },
-    {
-      "block": 13,
-      "trust_score": 0.38165539997109466,
-      "h_total_eat": 3359972.5496376986,
-      "delta_eat": 19669.310250165872,
-      "extraction_rate": 0.4852042367322123,
-      "certified_output_bits": 3600566
-    },
-    {
-      "block": 14,
-      "trust_score": 0.3948227334375136,
-      "h_total_eat": 3600605.944850304,
-      "delta_eat": 20360.9618456983,
-      "extraction_rate": 0.48159428996852377,
-      "certified_output_bits": 3600566
+      "trust_score": 0.6719109529057399,
+      "h_total_eat": 10993950.385200301,
+      "delta_eat": 31375.521073808894,
+      "extraction_rate": 0.6663157248616248,
+      "certified_output_bits": 10993907
     }
   ]
 }

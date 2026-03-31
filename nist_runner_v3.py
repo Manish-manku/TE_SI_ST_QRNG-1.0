@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import floor, log2, sqrt
+from math import floor, log2, sqrt, factorial
 from typing import Iterable, Iterator, List, Optional, Sequence
 
 import numpy as np
@@ -236,7 +236,7 @@ class NISTTestRunner:
         lam = (block_len - m + 1) / (2 ** m)
         probs = [np.exp(-lam)]
         for u in range(1, 5):
-            probs.append(np.exp(-lam) * lam ** u / np.math.factorial(u))
+            probs.append(np.exp(-lam) * lam ** u / factorial(u))
         probs.append(max(0.0, 1.0 - np.sum(probs)))
         cats = np.zeros(6)
         for c in counts:

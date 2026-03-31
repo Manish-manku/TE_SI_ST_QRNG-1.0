@@ -50,7 +50,7 @@ import math
 
 # Import v16 core (A5 fixed: QRNGSessionState + CertifiedGenerationSession)
 from config import DEFAULT_N_BITS, DEFAULT_BLOCK_SIZE
-from D_v16 import TrustEnhancedQRNG, TrustVector, QRNGSessionState, EATConvergenceWarning, InsufficientEntropyError
+from D_v16 import TrustEnhancedQRNG, TrustVector, QRNGSessionState, EATConvergenceWarning, InsufficientEntropyError, DiagnosticHaltError
 
 from New_simulator_v9 import (
     QuantumSourceSimulator,
@@ -176,10 +176,28 @@ def _run_exp2_scenario(args) -> Tuple[str, Dict]:
     source  = QuantumSourceSimulator(params, seed=42)
     te_qrng = TrustEnhancedQRNG(block_size=DEFAULT_BLOCK_SIZE)
 
+    from D_v16 import DiagnosticHaltError
+
     try:
         output_bits, metadata_list = te_qrng.generate_certified_random_bits(
             n_bits=n_bits, source_simulator=source
         )
+    except DiagnosticHaltError as exc:
+        print(f"  [Exp2] HALT for '{scenario_name}': {exc}")
+        return scenario_name, {
+            'empirical_h_output':    0.0,
+            'h_total_eat':           0.0,
+            'certified_output_bits': 0,
+            'delta_eat':             0.0,
+            'blocks_used':           0,
+            'sum_f_ei':              0.0,
+            'h_total_progression':   [],
+            'delta_progression':     [],
+            'output_bits':           0,
+            'expected_bits':         n_bits,
+            'halted':                True,
+            'halt_reason':           str(exc),
+        }
     except MemoryError as exc:
         raise RuntimeError(
             f"MemoryError during experiment 2 scenario '{scenario_name}' "
@@ -1014,14 +1032,16 @@ class ExperimentRunner:
             chunk_size = max(1, math.ceil(len(task_args) / effective_workers))
             chunks = [task_args[i:i + chunk_size] for i in range(0, len(task_args), chunk_size)]
 
-            with ProcessPoolExecutor(max_workers=effective_workers) as exe:
-                futures = {
-                    exe.submit(_run_worker_chunk, (worker_fn, chunk)): idx
-                    for idx, chunk in enumerate(chunks)
-                }
+            with ProcessPoolExecutor(max_workers=self.max_workers) as exe:
+                futures = {exe.submit(worker_fn, a): a[0] for a in task_args}
                 for fut in as_completed(futures):
-                    for name, result in fut.result():
+                    scenario_name = futures[fut]
+                    try:
+                        name, result = fut.result()
                         results[name] = result
+                    except Exception as exc:
+                        print(f"  [WARNING] Scenario '{scenario_name}' failed "
+                              f"in worker: {type(exc).__name__}: {exc}")
 
         return results
 
@@ -1109,9 +1129,10 @@ class ExperimentRunner:
         entropy_results = results['entropy']
         nist_results    = results['nist']
         for name, result in entropy_results.items():
-            failed = result.get('certification_failed', False)
-            status = " [FAILED]" if failed else ""
-            print(f"  [{name}]{status} H_total={result['h_total_eat']:.4f}  "
+            if result.get('halted'):
+                print(f"  [{name}] HALTED — {result.get('halt_reason', '')[:80]}")
+                continue
+            print(f"  [{name}] H_total={result['h_total_eat']:.4f}  "
                   f"certified_bits={result['certified_output_bits']}  "
                   f"Δ_EAT={result['delta_eat']:.4f}  "
                   f"blocks={result['blocks_used']}  "
@@ -1235,6 +1256,7 @@ class ExperimentRunner:
         print(f"\n  {'Bias':>6}  {'TE h_min':>9}  {'TE rate':>8}  "
               f"{'SI rate':>8}  {'Divergence':>10}  {'Trust':>7}")
         print("  " + "-" * 57)
+        
         for key in sorted(results.keys(), key=float):
             r = results[key]
             print(f"  {r['bias']:>6.2f}  {r['te_h_min']:>9.4f}  "
@@ -1272,6 +1294,7 @@ class ExperimentRunner:
         }
 
         te_qrng = TrustEnhancedQRNG(block_size=DEFAULT_BLOCK_SIZE)
+        shared_session = QRNGSessionState()
         exp5_bits_path = self.output_dir / "data" / "experiment_5_temporal_adaptation_output_bits.bin"
         exp5_meta_path = self.output_dir / "data" / "experiment_5_temporal_adaptation_blocks.jsonl"
 
@@ -1300,13 +1323,14 @@ class ExperimentRunner:
             params         = BiasedParams(bias=bias)
             source         = QuantumSourceSimulator(params, seed=42 + block_idx)
 
-            block  = source.generate_block(n_bits)
+            block  = source.generate_block(DEFAULT_BLOCK_SIZE)
             # B5 FIX: pass signal_stats so energy_constraint_test uses correct baseline
             _sig_stats = source.get_signal_stats()
             try:
                 _, metadata = te_qrng.process_block(
                     block.bits, block.bases, block.raw_signal,
                     signal_stats=_sig_stats,
+                    session=shared_session,
                 )
             except DiagnosticHaltError as exc:
                 print(f"  [HALT] Block {block_idx}: {exc}")
@@ -1374,145 +1398,7 @@ class ExperimentRunner:
         self.plotter.plot_temporal_adaptation(results)
         return results
 
-    # ------------------------------------------------------------------
-    # Experiment 7
-    # ------------------------------------------------------------------
-
-    def _compute_experiment_7(self, n_bits: int) -> Dict:
-        """Pure compute: tau sweep + mu sweep for gating validation."""
-        from scipy.stats import norm as scipy_norm
-        from D_v16 import PreValueGate
-
-        tau_grid     = np.linspace(0.0, 3.0, 301)
-        imr_theory   = scipy_norm.pdf(tau_grid) / np.maximum(scipy_norm.sf(tau_grid), 1e-15)
-        yield_theory = 2.0 * scipy_norm.sf(tau_grid)
-
-        attack_scenarios = {
-            'non_cooperative_weak':   NonCooperativeAttackedParams(mu_attack=0.05),
-            'non_cooperative_strong': NonCooperativeAttackedParams(mu_attack=0.20),
-        }
-
-        tau_sweep    = np.linspace(0.0, 2.5, 26)
-        sweep_results: Dict = {}
-
-        for sc_name, params in attack_scenarios.items():
-            mu         = params.mu_attack
-            source     = QuantumSourceSimulator(params, seed=42)
-            block      = source.generate_block(n_bits)
-            raw_signal = block.raw_signal
-            bits       = block.bits
-
-            eps_gate_empirical: List[float] = []
-            yield_empirical:    List[float] = []
-            eps_gate_bound:     List[float] = []
-
-            for tau in tau_sweep:
-                mask       = np.abs(raw_signal) > tau
-                n_accepted = int(np.sum(mask))
-                yield_emp  = n_accepted / max(len(raw_signal), 1)
-                accepted_bits = bits[mask]
-
-                eps_emp = float(abs(np.mean(accepted_bits) - 0.5)) if n_accepted > 10 else 0.5
-                imr_val = float(scipy_norm.pdf(tau) / max(scipy_norm.sf(tau), 1e-15))
-
-                eps_gate_empirical.append(eps_emp)
-                yield_empirical.append(yield_emp)
-                eps_gate_bound.append(abs(mu) * imr_val / 2.0)
-
-            sweep_results[sc_name] = {
-                'mu_attack':          mu,
-                'tau_sweep':          tau_sweep.tolist(),
-                'eps_gate_empirical': eps_gate_empirical,
-                'yield_empirical':    yield_empirical,
-                'eps_gate_bound':     eps_gate_bound,
-            }
-
-        mu_values = np.linspace(0.0, 0.5, 21)
-        gate_ref  = PreValueGate(sigma=1.0, yield_min=0.30, tau_init=0.5)
-
-        mu_sweep_results: Dict = {
-            'mu_values':          mu_values.tolist(),
-            'eps_gate_empirical': [],
-            'eps_gate_bound':     [],
-            'tau_star':           [],
-            'yield_at_tau_star':  [],
-        }
-
-        for mu in mu_values:
-            params  = (NonCooperativeAttackedParams(mu_attack=float(mu))
-                       if mu > 0 else NonCooperativeAttackedParams(mu_attack=1e-6))
-            source  = QuantumSourceSimulator(params, seed=42)
-            block   = source.generate_block(n_bits)
-            raw_sig = block.raw_signal
-            bits    = block.bits
-
-            eps_bias_proxy = float(abs(mu) * 2.0 * scipy_norm.pdf(mu) /
-                                   max(scipy_norm.sf(mu), 1e-15))
-            tau_star      = gate_ref.update_tau(eps_bias_proxy)
-
-            mask          = np.abs(raw_sig) > tau_star
-            n_accepted    = int(np.sum(mask))
-            yield_at_tau  = n_accepted / max(len(raw_sig), 1)
-            accepted_bits = bits[mask]
-
-            eps_emp = float(abs(np.mean(accepted_bits) - 0.5)) if n_accepted > 10 else 0.5
-            imr_val = float(scipy_norm.pdf(tau_star) / max(scipy_norm.sf(tau_star), 1e-15))
-
-            mu_sweep_results['eps_gate_empirical'].append(eps_emp)
-            mu_sweep_results['eps_gate_bound'].append(abs(mu) * imr_val / 2.0)
-            mu_sweep_results['tau_star'].append(float(tau_star))
-            mu_sweep_results['yield_at_tau_star'].append(float(yield_at_tau))
-
-        return {
-            'tau_sweep':    sweep_results,
-            'mu_sweep':     mu_sweep_results,
-            'tau_grid':     tau_grid.tolist(),
-            'imr_theory':   imr_theory.tolist(),
-            'yield_theory': yield_theory.tolist(),
-        }
-
-    def _log_exp7_results(self, results: Dict) -> None:
-        print("\n[7-A / 7-B] τ-sweep results:")
-        for sc_name, data in results['tau_sweep'].items():
-            for tau, yield_emp, eps_emp, eps_bound in zip(
-                data['tau_sweep'], data['yield_empirical'],
-                data['eps_gate_empirical'], data['eps_gate_bound']
-            ):
-                print(f"  [{sc_name}] τ={tau:.2f}  yield={yield_emp:.3f}  "
-                      f"ε_emp={eps_emp:.4f}  ε_bound={eps_bound:.4f}")
-
-        print("\n[7-C] μ-sweep results:")
-        mu_sweep = results['mu_sweep']
-        for mu, tau_s, yield_s, eps_emp, eps_bound in zip(
-            mu_sweep['mu_values'],   mu_sweep['tau_star'],
-            mu_sweep['yield_at_tau_star'],
-            mu_sweep['eps_gate_empirical'], mu_sweep['eps_gate_bound']
-        ):
-            print(f"  μ={mu:.3f}  τ*={tau_s:.3f}  yield={yield_s:.3f}  "
-                  f"ε_emp={eps_emp:.4f}  ε_bound={eps_bound:.4f}")
-
-    def experiment_7_gating_validation(self, n_bits: int = DEFAULT_N_BITS):
-        """Experiment 7: Adaptive Pre-Value Gating Validation."""
-        print("\n" + "=" * 80)
-        print("EXPERIMENT 7: Adaptive Pre-Value Gating Validation  [v9]")
-        print("=" * 80)
-
-        results = self._compute_experiment_7(n_bits)
-        self._log_exp7_results(results)
-
-        save_results = {k: v for k, v in results.items()
-                        if k not in ('tau_grid', 'imr_theory', 'yield_theory')}
-        self._save_results('experiment_7_gating_validation', save_results)
-
-        tau_grid     = np.array(results['tau_grid'])
-        imr_theory   = np.array(results['imr_theory'])
-        yield_theory = np.array(results['yield_theory'])
-
-        self.plotter.plot_7A_eps_vs_tau(results['tau_sweep'], tau_grid, imr_theory)
-        self.plotter.plot_7B_yield_vs_tau(results['tau_sweep'], tau_grid, yield_theory)
-        self.plotter.plot_7C_eps_vs_mu(results['mu_sweep'])
-
-        return results
+  
 
     # ------------------------------------------------------------------
     # Run all

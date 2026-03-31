@@ -1,4 +1,11 @@
 {
+  "small_bias": {
+    "epsilon_bias": 0.06177039199054444,
+    "epsilon_drift": 0.01798620996209156,
+    "epsilon_corr": 0.10130585497308649,
+    "epsilon_leak": 0.05732828643764233,
+    "trust_score": 0.9335009515985936
+  },
   "ideal": {
     "epsilon_bias": 0.032346699474368586,
     "epsilon_drift": 0.01798620996209156,
@@ -6,54 +13,47 @@
     "epsilon_leak": 0.04745435500415874,
     "trust_score": 0.9613092644200469
   },
-  "small_bias": {
-    "epsilon_bias": 0.07232099200043332,
-    "epsilon_drift": 0.01798620996209156,
-    "epsilon_corr": 0.12163665270568455,
-    "epsilon_leak": 0.057348814523412374,
-    "trust_score": 0.9231264163684767
-  },
   "large_bias": {
-    "epsilon_bias": 0.5009216442353409,
+    "epsilon_bias": 0.3190512190147358,
     "epsilon_drift": 0.01798620996209156,
-    "epsilon_corr": 0.7417962845370595,
-    "epsilon_leak": 0.09979142230553817,
-    "trust_score": 0.5495929471214438
+    "epsilon_corr": 0.5362870111996977,
+    "epsilon_leak": 0.09975724015364688,
+    "trust_score": 0.6839017362242532
   },
   "temporal_drift": {
-    "epsilon_bias": 0.9911708164426914,
+    "epsilon_bias": 0.9914874755239765,
     "epsilon_drift": 0.01798620996209156,
-    "epsilon_corr": 0.9988206608327904,
-    "epsilon_leak": 0.9999999955847385,
-    "trust_score": 0.13681030549588913
+    "epsilon_corr": 0.998962282304288,
+    "epsilon_leak": 0.9999999955828922,
+    "trust_score": 0.13667842745271264
   },
   "short_correlation": {
-    "epsilon_bias": 0.03234248587827846,
+    "epsilon_bias": 0.03237987116518454,
     "epsilon_drift": 0.01798620996209156,
-    "epsilon_corr": 0.07961511744302553,
-    "epsilon_leak": 0.047464067484196557,
-    "trust_score": 0.9500977335955615
+    "epsilon_corr": 0.06651344954846548,
+    "epsilon_leak": 0.047469629174662575,
+    "trust_score": 0.9551408747569388
   },
   "long_correlation": {
-    "epsilon_bias": 0.03302568888909543,
+    "epsilon_bias": 0.03230837513666496,
     "epsilon_drift": 0.01798620996209156,
-    "epsilon_corr": 0.9999999716247533,
-    "epsilon_leak": 0.047464067484196557,
-    "trust_score": 0.4990840936776285
+    "epsilon_corr": 0.9999954021370039,
+    "epsilon_leak": 0.04756209032707922,
+    "trust_score": 0.49909574478145
   },
   "weak_attack": {
-    "epsilon_bias": 0.07759568720172155,
+    "epsilon_bias": 0.059752963410686186,
     "epsilon_drift": 0.01798620996209156,
-    "epsilon_corr": 0.1322425245914166,
-    "epsilon_leak": 0.0919466593268763,
-    "trust_score": 0.9101572653288093
+    "epsilon_corr": 0.10566941774784432,
+    "epsilon_leak": 0.05872035821955802,
+    "trust_score": 0.9319778956850038
   },
   "strong_attack": {
-    "epsilon_bias": 0.3372702492240352,
+    "epsilon_bias": 0.1572354806652653,
     "epsilon_drift": 0.01798620996209156,
-    "epsilon_corr": 0.5713331431269367,
-    "epsilon_leak": 0.5462711950645406,
-    "trust_score": 0.5702010633584031
+    "epsilon_corr": 0.40702036801855834,
+    "epsilon_leak": 0.09020364179705351,
+    "trust_score": 0.7770376841794497
   },
   "non_cooperative_weak": {
     "epsilon_bias": 0.044777826449364254,
@@ -70,18 +70,18 @@
     "trust_score": 0.879417295560662
   },
   "realistic_photon": {
-    "epsilon_bias": 0.03233365561292742,
+    "epsilon_bias": 0.9677682695747378,
     "epsilon_drift": 0.01798620996209156,
-    "epsilon_corr": 0.04947466322214246,
-    "epsilon_leak": 0.327667324469394,
-    "trust_score": 0.8332797351399871
+    "epsilon_corr": 0.9935472778602905,
+    "epsilon_leak": 0.3275998014273491,
+    "trust_score": 0.2873716342680228
   },
   "degraded_photon": {
-    "epsilon_bias": 0.032454155010630016,
+    "epsilon_bias": 0.49972077749084376,
     "epsilon_drift": 0.01798620996209156,
-    "epsilon_corr": 0.04902349275057928,
-    "epsilon_leak": 0.22697677033458435,
-    "trust_score": 0.8824217993852186
+    "epsilon_corr": 0.7371030335668887,
+    "epsilon_leak": 0.22693963534431486,
+    "trust_score": 0.5404168085676506
   },
   "phase_noise_clean": {
     "epsilon_bias": 0.03259040646382261,
