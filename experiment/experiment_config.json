@@ -1,0 +1,59 @@
+{
+  "output_dir": "experiment",
+  "quick": false,
+  "safety_fraction": 0.5,
+  "timeout_seconds": 180.0,
+  "seed": 42,
+  "self_test_sizes": [
+    10000,
+    100000,
+    1000000
+  ],
+  "cert_sizes": [
+    10000,
+    100000,
+    1000000
+  ],
+  "eat_block_counts": [
+    1,
+    10,
+    50,
+    100,
+    500
+  ],
+  "toeplitz_size_pairs": [
+    [
+      10000,
+      5000
+    ],
+    [
+      100000,
+      50000
+    ],
+    [
+      1000000,
+      500000
+    ],
+    [
+      5000000,
+      2000000
+    ],
+    [
+      10000000,
+      4000000
+    ]
+  ],
+  "candidate_block_sizes": [
+    10000,
+    100000,
+    1000000,
+    3240000,
+    3500000,
+    10000000
+  ],
+  "full_gen_targets": [
+    100000,
+    1000000
+  ],
+  "dense_toeplitz_benchmark_enabled": false
+}
