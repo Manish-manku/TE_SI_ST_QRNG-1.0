@@ -1333,7 +1333,7 @@ class TrustEnhancedQRNG:
         This keeps diagnostics operationally meaningful while preserving the
         entropy-certification invariant.
         """
-        freq_pass, freq_p = self.stat_tester.frequency_test(raw_bits)
+      
         autocorr_pass, max_autocorr = self.stat_tester.autocorrelation_test(raw_bits)
         _,             epsilon_sv   = self.stat_tester.santha_vazirani_test(raw_bits)
         _,             runs_p       = self.stat_tester.runs_test(raw_bits)
