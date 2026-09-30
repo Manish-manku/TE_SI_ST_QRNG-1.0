@@ -1,0 +1,19 @@
+component,category,block_size_or_n_bits,extra_param,status,successful_runs,failed_runs,latency_ms_mean,latency_ms_std,cpu_time_ms_mean,throughput_Mbits_per_s
+process_block_total_cold,end_to_end_cold,10000,{},ok,5,0,3.8967,0.0237,3.125,
+process_block_total_steady,end_to_end_steady,10000,{},ok,5,0,3.975,0.0575,6.25,
+process_block_total_cold,end_to_end_cold,100000,{},ok,5,0,50.2056,0.562,46.875,
+process_block_total_steady,end_to_end_steady,100000,{},ok,5,0,50.1227,0.4892,50.0,
+process_block_total_cold,end_to_end_cold,1000000,{},ok,3,0,894.2684,0.4645,890.625,
+process_block_total_steady,end_to_end_steady,1000000,{},ok,3,0,895.4744,1.5393,885.4167,
+process_block_total_cold,end_to_end_cold,3240000,{},ok,2,0,4990.1772,1.9844,4984.375,
+process_block_total_steady,end_to_end_steady,3240000,{},ok,2,0,4986.2085,3.0493,4992.1875,
+process_block_total_cold,end_to_end_cold,3500000,{},ok,2,0,5537.5968,5.8547,5507.8125,
+process_block_total_steady,end_to_end_steady,3500000,{},ok,2,0,5529.3559,6.3314,5492.1875,
+process_block_total_cold,end_to_end_cold,10000000,{},skipped,0,0,,,,
+process_block_total_steady,end_to_end_steady,10000000,{},skipped,0,0,,,,
+_certify_block,end_to_end_cold,10000000,{},skipped,0,0,,,,
+_run_diagnostics,end_to_end_cold,10000000,{},skipped,0,0,,,,
+_extract_block,end_to_end_cold,10000000,{},skipped,0,0,,,,
+_assemble_metadata,end_to_end_cold,10000000,{},skipped,0,0,,,,
+generate_certified_random_bits,full_generation,100000,"{""n_bits_requested"": 100000, ""output_length_mean_actual"": 100000, ""output_length_samples_used"": 3}",ok,3,0,239.3669,0.824,229.1667,0.4178
+generate_certified_random_bits,full_generation,1000000,"{""n_bits_requested"": 1000000, ""output_length_mean_actual"": 1000000, ""output_length_samples_used"": 2}",ok,2,0,5025.0397,50.9871,4992.1875,0.199

@@ -1,0 +1,7 @@
+block_size,status,total_latency_ms_cold,total_latency_ms_steady,certify_block_ms,run_diagnostics_ms,extract_block_ms,assemble_metadata_ms,unaccounted_overhead_ms,bottleneck_component,throughput_raw_input_Mbits_per_s_cold
+10000,ok,3.8967,3.975,0.3375,2.1919,1.5447,0.0464,0.0,_run_diagnostics,2.5663
+100000,ok,50.2056,50.1227,2.1253,26.4404,20.1076,0.0462,1.4862,_run_diagnostics,1.9918
+1000000,ok,894.2684,895.4744,24.002,382.0432,487.4936,0.0478,0.6818,_extract_block,1.1182
+3240000,ok,4990.1772,4986.2085,77.8226,1347.5052,3532.2931,0.0472,32.5092,_extract_block,0.6493
+3500000,ok,5537.5968,5529.3559,84.0088,1418.1346,4020.2818,0.0461,15.1254,_extract_block,0.632
+10000000,skipped,,,,,,,,,

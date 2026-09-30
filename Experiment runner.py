@@ -19,8 +19,7 @@ ARCHITECTURE MAP  (spec section 31 — built before any benchmarking code)
         v
   TrustEnhancedQRNG.process_block()                     [D_v16.py orchestrator]
         |
-        +-- _certify_block()      [MIXED: Layer-1 gating (PreValueGate) +
-        |                           BB84 split + Hoeffding/min-entropy
+        +-- _certify_block()      [ BB84 split + Hoeffding/min-entropy
         |                           (EntropyEstimator.certify_min_entropy)
         |                           + EAT history append (session.append_block)]
         |
@@ -41,26 +40,20 @@ ARCHITECTURE MAP  (spec section 31 — built before any benchmarking code)
   block and calling QRNGSessionState.accumulate_eat() (EAT) after every
   block, until the EAT-derived certified_output_bits >= n_bits requested.
 
-IMPORTANT — this map corrects an assumption a filename/class-name reading
-would produce: _certify_block() is NOT a "trust monitoring" step. It mixes
-Layer-1 gating (arguably trust/health-adjacent) with Hoeffding bound, min-
-entropy, and EAT bookkeeping (security/certification plane). The ONLY
-step that is purely "trust monitoring" in the live block pipeline is
-_run_diagnostics(). This benchmark measures _certify_block() and
-_run_diagnostics() as separate, individually-timed steps specifically so
-this mixing is visible in the data rather than papered over (see
-compute_overhead_breakdown() and the explicit caveat text it emits).
+IMPORTANT: _certify_block() is the certification-plane step (BB84 split,
+Hoeffding min-entropy certification, EAT history append).The only purely
+"trust monitoring" step in the live block pipeline is _run_diagnostics().
+This benchmark times _certify_block() and _run_diagnostics() separately so
+the two planes stay distinguishable in the data.
 
-Also: StatisticalSelfTester defines four public tests (santha_vazirani_test,
-runs_test, autocorrelation_test, frequency_test), but tracing
-TrustEnhancedQRNG.run_self_tests() shows it calls only autocorrelation_test().
-epsilon_bias comes from an inline np.mean() calculation; epsilon_leak from
-QuantumWitnessTester.dimension_witness(); epsilon_drift from
-QuantumWitnessTester.energy_constraint_test() + PhysicalDriftMonitor (CUSUM).
-santha_vazirani_test, runs_test, and frequency_test are implemented but not
-called anywhere in the live monitoring path. Both groups are benchmarked,
-labeled "trust_monitoring_live" vs "trust_monitoring_not_wired" respectively,
-and never mixed into the same summary row.
+Also: run_self_tests() calls autocorrelation_test(), santha_vazirani_test()
+and runs_test(); epsilon_corr is the max-fusion of the three signals.
+epsilon_bias comes from an inline np.mean() calculation, epsilon_leak from
+QuantumWitnessTester.dimension_witness(), and epsilon_drift from
+energy_constraint_test() + PhysicalDriftMonitor (CUSUM). frequency_test() is
+defined in StatisticalSelfTester but not called in the live path. Live tests
+are labeled "trust_monitoring_live"; frequency_test is labeled
+"trust_monitoring_defined_not_called".
 
 Dense Toeplitz: RandomnessExtractor has exactly one extraction code path
 (toeplitz_extract -> _toeplitz_fft_chunk, FFT-circulant, auto-chunked above
@@ -111,8 +104,8 @@ valid corrections)
                          independent single-block computational cost.
     end_to_end_steady : ONE TrustEnhancedQRNG instance reused across all
                          repetitions -> measures operational steady-state
-                         cost (PhysicalDriftMonitor's CUSUM state and
-                         PreValueGate's adaptive tau genuinely persist
+                         cost (PhysicalDriftMonitor's CUSUM state
+                         genuinely persists
                          across calls on the same instance; this is by
                          design in the real system, so steady-state is a
                          legitimate second measurement, not a bug).
@@ -201,6 +194,8 @@ from D_v16 import (
 from New_simulator_v9 import QuantumSourceSimulator, IdealParams
 
 _PROCESS = psutil.Process(os.getpid())
+TIMING_ONLY = os.environ.get("TIMING_ONLY", "0") == "1"   # 1 = no tracemalloc, no RSS sampler
+1
 
 
 # ===========================================================================
@@ -219,7 +214,7 @@ class ExperimentConfig:
     eat_block_counts: List[int] = field(default_factory=lambda: [1, 10, 50, 100, 500])
     toeplitz_size_pairs: List[Tuple[int, int]] = field(default_factory=lambda: [
         (10_000, 5_000), (100_000, 50_000), (1_000_000, 500_000),
-        (5_000_000, 2_000_000), (10_000_000, 4_000_000)])
+        (1_620_000, 1_600_000), (5_000_000, 2_000_000), (10_000_000, 4_000_000)])
     candidate_block_sizes: List[int] = field(default_factory=lambda: [
         10_000, 100_000, 1_000_000, 3_240_000, 3_500_000, 10_000_000])
     full_gen_targets: List[int] = field(default_factory=lambda: [100_000, 1_000_000])
@@ -343,7 +338,8 @@ class RSSPeakSampler:
 
 def run_repeated(fn: Callable, n_repeats: int, warmup: int = 1,
                   timeout_seconds: Optional[float] = None,
-                  sample_rss: bool = False, rss_interval_s: float = 0.002) -> Dict:
+                  sample_rss: bool = False, rss_interval_s: float = 0.002,
+                  track_mem: bool = True) -> Dict:
     """
     Times fn() over n_repeats calls (after `warmup` untimed calls).
     Returns status/error/successful_runs/failed_runs plus raw per-call
@@ -352,6 +348,9 @@ def run_repeated(fn: Callable, n_repeats: int, warmup: int = 1,
     peak_rss_sampled_MB (background-thread sampled, or None if
     sample_rss=False), rss_delta_MB (simple before/after).
     """
+    if TIMING_ONLY:
+        sample_rss = False
+        track_mem = False
     try:
         with time_limit(timeout_seconds):
             for _ in range(warmup):
@@ -365,7 +364,8 @@ def run_repeated(fn: Callable, n_repeats: int, warmup: int = 1,
 
     for _ in range(n_repeats):
         gc.collect()
-        tracemalloc.start()
+        if track_mem:
+            tracemalloc.start()
         rss_before = _PROCESS.memory_info().rss
         _PROCESS.cpu_percent(interval=None)
         sampler = RSSPeakSampler(_PROCESS, rss_interval_s) if sample_rss else None
@@ -381,7 +381,8 @@ def run_repeated(fn: Callable, n_repeats: int, warmup: int = 1,
         except (TimeoutSkipped, MemoryError) as exc:
             if sampler:
                 sampler.stop()
-            tracemalloc.stop()
+            if track_mem:
+                tracemalloc.stop()
             failed += 1
             continue
         t1_cpu = time.process_time()
@@ -389,13 +390,14 @@ def run_repeated(fn: Callable, n_repeats: int, warmup: int = 1,
         cpu_pct = _PROCESS.cpu_percent(interval=None)
         rss_after = _PROCESS.memory_info().rss
         peak_rss_val = sampler.stop() if sampler else None
-        _, peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
+        if track_mem:
+            _, peak = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+            peak_py.append(peak / (1024 ** 2))
 
         lat_ms.append((t1 - t0) * 1000.0)
         cpu_t_ms.append((t1_cpu - t0_cpu) * 1000.0)
         cpu_p.append(cpu_pct)
-        peak_py.append(peak / (1024 ** 2))
         if peak_rss_val is not None:
             peak_rss.append(max(peak_rss_val - rss_before, 0) / (1024 ** 2))
         rss_d.append((rss_after - rss_before) / (1024 ** 2))
@@ -574,8 +576,8 @@ def functional_correctness_check(benchmarks: List[Dict]) -> Dict:
 def benchmark_trust_monitoring(cfg: ExperimentConfig, benchmarks: List[Dict]) -> None:
     print("\n[A] Trust-monitoring components")
     print("    trust_monitoring_live      = actually invoked by run_self_tests()")
-    print("    trust_monitoring_not_wired = StatisticalSelfTester methods that exist "
-          "but run_self_tests() never calls (see architecture map)")
+    print("    trust_monitoring_defined_not_called = defined in StatisticalSelfTester "
+          "but not called by run_self_tests() (see architecture map)")
 
     stat_tester = StatisticalSelfTester()
     quantum_tester = QuantumWitnessTester()
@@ -645,17 +647,23 @@ def benchmark_trust_monitoring(cfg: ExperimentConfig, benchmarks: List[Dict]) ->
                                        res, n, repetitions_requested=r, warmup=w,
                                        notes="Whole live trust-vector-construction call, one shot."))
 
-        for name, fn in [
-            ("santha_vazirani_test", lambda: stat_tester.santha_vazirani_test(bits)),
-            ("runs_test", lambda: stat_tester.runs_test(bits)),
-            ("frequency_test", lambda: stat_tester.frequency_test(bits)),
+        for name, fn, cat, note in [
+            ("santha_vazirani_test", lambda: stat_tester.santha_vazirani_test(bits),
+             "trust_monitoring_live",
+             "Called by run_self_tests(); feeds epsilon_corr (max-fused with the "
+             "autocorrelation and runs-test signals)."),
+            ("runs_test", lambda: stat_tester.runs_test(bits),
+             "trust_monitoring_live",
+             "Called by run_self_tests(); feeds epsilon_corr (max-fused with the "
+             "autocorrelation and Santha-Vazirani signals)."),
+            ("frequency_test", lambda: stat_tester.frequency_test(bits),
+             "trust_monitoring_defined_not_called",
+             "Defined in StatisticalSelfTester but not called by run_self_tests(); "
+             "epsilon_bias uses an inline mean calculation. Not part of live cost."),
         ]:
             res = run_repeated(fn, r, w, cfg.timeout_seconds, sample_rss=(n >= 100_000))
-            benchmarks.append(make_record(name, "trust_monitoring_not_wired", res, n,
-                                           repetitions_requested=r, warmup=w,
-                                           notes="Implemented in StatisticalSelfTester but NOT "
-                                                 "called by run_self_tests() in the live pipeline. "
-                                                 "Do not present in a main live-pipeline table."))
+            benchmarks.append(make_record(name, cat, res, n,
+                                           repetitions_requested=r, warmup=w, notes=note))
 
         for rec in benchmarks[-9:]:
             if rec["block_size"] == n:
@@ -790,6 +798,54 @@ def benchmark_extraction(cfg: ExperimentConfig, benchmarks: List[Dict]) -> None:
         "peak_python_tracked_MB": None, "peak_rss_sampled_MB": None, "rss_delta_MB": None,
     })
 
+def benchmark_extraction_decomposition(cfg: ExperimentConfig, benchmarks: List[Dict]) -> None:
+    """Splits extraction into seed expansion vs pure FFT convolution vs full call.
+    Timing-only pass: tracemalloc and RSS sampler are OFF so they cannot distort
+    Python-heavy code. Uses a pipeline-realistic seed of 2*out_len bits."""
+    print("\n[C2] Extraction decomposition (seed expansion vs FFT vs full call)")
+    rng = np.random.RandomState(cfg.seed + 9)
+    for n_gen, out_len in cfg.toeplitz_size_pairs:
+        if n_gen > 5_000_000:
+            continue
+        est = estimate_pipeline_memory_bytes(n_gen) + (n_gen + out_len) * 80
+        safe, reason = check_memory_safety(est, cfg.safety_fraction)
+        extra = {"n_gen": n_gen, "output_length": out_len}
+        if not safe:
+            benchmarks.append(make_record(
+                "toeplitz_decomp_full", "extraction_decomposition",
+                {"status": "skipped", "error": reason, "successful_runs": 0,
+                 "failed_runs": 0, "samples": None}, n_gen, extra))
+            print(f"  n_gen={n_gen:,}  SKIPPED ({reason})")
+            continue
+
+        weak = rng.randint(0, 2, size=n_gen).astype(np.uint8)
+        seed = rng.randint(0, 2, size=2 * out_len).astype(np.uint8)
+        required = n_gen + out_len - 1
+        ext = RandomnessExtractor(input_length=n_gen, output_length=out_len)
+        r, w = repetitions_for_size(n_gen), warmup_for_size(n_gen)
+        r = max(r, 3)
+
+        seed_full = ext._extend_seed(seed, required)   # untimed, reused by the FFT test
+
+        specs = [
+            ("toeplitz_decomp_seed_expansion", lambda: ext._extend_seed(seed, required),
+             "SHA-256 seed expansion to n+m-1 bits (_extend_seed)."),
+            ("toeplitz_decomp_fft_only", lambda: ext._toeplitz_fft_chunk(weak, seed_full, out_len),
+             "Pure FFT circulant convolution (_toeplitz_fft_chunk), seed pre-expanded."),
+            ("toeplitz_decomp_full", lambda: ext.toeplitz_extract(weak, seed),
+             "Full toeplitz_extract() with a 2m-bit seed, as the pipeline calls it."),
+        ]
+        for name, fn, note in specs:
+            res = run_repeated(fn, r, w, cfg.timeout_seconds,
+                               sample_rss=False, track_mem=False)
+            rec = make_record(name, "extraction_decomposition", res, n_gen, extra,
+                              repetitions_requested=r, warmup=w, notes=note)
+            benchmarks.append(rec)
+            if rec["status"] in ("ok", "partial"):
+                print(f"  n_gen={n_gen:>9,} {name:32s} {rec['latency_ms']['mean']:10.2f} ms "
+                      f"(std {rec['latency_ms']['std']:.2f})")
+            else:
+                print(f"  n_gen={n_gen:>9,} {name:32s} SKIPPED ({rec['error']})")
 
 # ===========================================================================
 # Section D — process_block(): cold vs steady-state, plus true 4-method breakdown
@@ -818,7 +874,7 @@ def benchmark_process_block(block_size: int, cfg: ExperimentConfig,
     # STEADY-state intentionally keeps ONE shared source instance (and one
     # shared TrustEnhancedQRNG instance) across all its repetitions — that
     # persistence is the entire point of the steady-state measurement
-    # (PhysicalDriftMonitor's CUSUM state and PreValueGate's adaptive tau
+    # (PhysicalDriftMonitor's CUSUM state
     # are meant to accumulate). This is unchanged.
     steady_source = QuantumSourceSimulator(IdealParams(), seed=cfg.seed + 3)
 
@@ -860,8 +916,8 @@ def benchmark_process_block(block_size: int, cfg: ExperimentConfig,
         "process_block_total_steady", "end_to_end_steady", block_size, w + r,
         _build_steady, _call_steady, r, w, cfg, benchmarks,
         notes="ONE TrustEnhancedQRNG instance reused across all calls: measures "
-              "operational steady-state cost (PhysicalDriftMonitor CUSUM state and "
-              "PreValueGate adaptive tau genuinely persist across calls by design).",
+              "operational steady-state cost (PhysicalDriftMonitor CUSUM state "
+              "genuinely persists across calls by design).",
         sample_rss=True)
 
     # ---- 4-method breakdown (COLD; each step gets its own fresh fixtures) ----
@@ -879,10 +935,9 @@ def benchmark_process_block(block_size: int, cfg: ExperimentConfig,
     rec_certify = run_indexed_benchmark(
         "_certify_block", "end_to_end_breakdown", block_size, w + r,
         build_certify, call_certify, r, w, cfg, benchmarks,
-        notes="MIXED step: Layer-1 gating + BB84 split + Hoeffding/min-entropy "
+            notes="Certification-plane step: BB84 split + Hoeffding/min-entropy "
               "certification + EAT history append, all inside one method in D_v16.py. "
-              "See architecture map for why this cannot be split further without "
-              "modifying the source file.",
+              ,
         sample_rss=(block_size >= 100_000))
 
     def build_diag(i):
@@ -1153,18 +1208,15 @@ def compute_overhead_breakdown(scaling_results: Dict) -> Dict:
         "representative_block_size": int(rep_key),
         "total_cold_ms": total_ms,
         "trust_monitoring_pct": pct("_run_diagnostics"),
-        "gating_and_certification_mixed_pct": pct("_certify_block"),
+        "certification_pct": pct("_certify_block"),
         "extraction_pct": pct("_extract_block"),
         "bookkeeping_pct": pct("_assemble_metadata"),
         "unaccounted_overhead_pct": 100 * r["unaccounted_overhead_ms"] / total_ms if total_ms else None,
-        "caveat": ("'gating_and_certification_mixed_pct' is NOT a clean 'certification "
-                   "plane only' number: _certify_block() in D_v16.py combines Layer-1 "
-                   "pre-value gating (trust/health-adjacent) with Hoeffding bound, "
-                   "min-entropy certification, and EAT history bookkeeping (security "
-                   "plane) inside a single method. This benchmark does not modify D_v16.py "
-                   "to split them further, per the instruction to measure the existing "
-                   "system rather than redesign it. 'trust_monitoring_pct' (from "
-                   "_run_diagnostics) IS a clean, purely-trust-monitoring number."),
+                "caveat": ("'certification_pct' covers _certify_block(): the BB84 round split, "
+                   "Hoeffding-bound min-entropy certification and the EAT history append "
+                   "certification plane only;'trust_monitoring_pct' (from _run_diagnostics) is the "
+                   "purely trust-monitoring share. This benchmark measures the existing "
+                   "system and does not modify D_v16.py."),
     }
 
 
@@ -1442,11 +1494,11 @@ def plot_runtime_breakdown(overhead: Dict, out: Path) -> None:
     fig, ax = plt.subplots(figsize=(9, 6))
     if overhead.get("status") == "ok":
         labels = ["_run_diagnostics\n(trust monitoring,\nclean)",
-                  "_certify_block\n(gating+cert,\nMIXED)",
+                  "_certify_block\n(certification)",
                   "_extract_block\n(extraction,\nclean)",
                   "_assemble_metadata\n(bookkeeping)",
                   "unaccounted\noverhead"]
-        vals = [overhead["trust_monitoring_pct"], overhead["gating_and_certification_mixed_pct"],
+        vals = [overhead["trust_monitoring_pct"], overhead["certification_pct"],
                 overhead["extraction_pct"], overhead["bookkeeping_pct"],
                 overhead["unaccounted_overhead_pct"]]
         vals = [v if v is not None else 0.0 for v in vals]
@@ -1526,8 +1578,8 @@ def write_experiment_summary_md(benchmarks: List[Dict], scaling_results: Dict,
         lines.append("|---|---|---|")
         lines.append(f"| _run_diagnostics (trust monitoring) | "
                      f"{overhead['trust_monitoring_pct']:.1f}% | clean, trust-plane only |")
-        lines.append(f"| _certify_block (gating + certification) | "
-                     f"{overhead['gating_and_certification_mixed_pct']:.1f}% | **MIXED** — see caveat below |")
+        lines.append(f"| _certify_block (certification) | "
+                     f"{overhead['certification_pct']:.1f}% | certification plane only — see note below |")
         lines.append(f"| _extract_block (FFT Toeplitz extraction) | "
                      f"{overhead['extraction_pct']:.1f}% | clean, extraction only |")
         lines.append(f"| _assemble_metadata (bookkeeping) | "
@@ -1607,12 +1659,10 @@ def write_experiment_paper_section_md(overhead: Dict, scaling_results: Dict,
                      f"{overhead['trust_monitoring_pct']:.1f}% is attributable to the "
                      f"purely trust-monitoring diagnostic step, and "
                      f"{overhead['extraction_pct']:.1f}% to FFT-based Toeplitz extraction. "
-                     f"A further {overhead['gating_and_certification_mixed_pct']:.1f}% is "
-                     f"attributable to a combined step performing pre-value gating together "
-                     f"with Hoeffding-bound min-entropy certification and entropy-accumulation "
-                     f"bookkeeping, which the current implementation does not separate into "
-                     f"independently measurable units; this combined figure should not be "
-                     f"described as \"certification cost\" alone. See `runtime_breakdown.png` "
+                     f"A further {overhead['certification_pct']:.1f}% is "
+                     f"attributable to the certification step (BB84 round split, "
+                     f"Hoeffding-bound min-entropy certification and entropy-accumulation "
+                     f"bookkeeping). See `runtime_breakdown.png` "
                      f"and `scalability.csv`/`throughput.csv` for the full data.\n")
     else:
         lines.append("[Insert measured numbers once a run has completed successfully; no "
@@ -1634,8 +1684,12 @@ def write_experiment_paper_section_md(overhead: Dict, scaling_results: Dict,
                  "experiment and is not re-evaluated here.")
     lines.append("- Passing statistical tests or achieving a given throughput is not a "
                  "cryptographic security claim.")
-    lines.append("- The gating+certification runtime share could not be cleanly separated "
-                 "without modifying the measured implementation (see Results).")
+    lines.append("- Sampled process RSS is measured above a per-call baseline in one "
+                 "long-lived process, so it can depend on allocator reuse from earlier, "
+                 "larger block sizes; it is not a theoretical memory bound.")
+    lines.append("- Above the single-FFT size limit the extractor switches to a chunked "
+                 "path (the 10M-bit point), so latency is not strictly monotonic in "
+                 "block size.")
     lines.append("- No dense Toeplitz implementation exists in the codebase to compare "
                  "against the FFT-based extractor.\n")
 
@@ -1653,7 +1707,7 @@ proposed architecture is intended for real-time deployment."
 
 ## Addressed by this experiment
 - Computational overhead and latency of each trust-monitoring component actually
-  invoked by the live pipeline (bias, drift/CUSUM, autocorrelation, leakage,
+  invoked by the live pipeline (bias, drift/CUSUM, autocorrelation, Santha-Vazirani, runs, leakage,
   trust-vector construction, trust-score computation).
 - Computational overhead and latency of the security-certification components
   (Hoeffding-corrected min-entropy certification, EAT accumulation, final
@@ -1728,6 +1782,7 @@ def run_all(cfg: ExperimentConfig) -> Dict:
     benchmark_trust_monitoring(cfg, benchmarks)
     benchmark_certification(cfg, benchmarks)
     benchmark_extraction(cfg, benchmarks)
+    benchmark_extraction_decomposition(cfg, benchmarks)
     scaling_results = benchmark_block_size_scaling(cfg, benchmarks)
     rep_block_size = min(cfg.candidate_block_sizes[-1], 1_000_000)
     benchmark_full_generation(cfg, rep_block_size, benchmarks)
@@ -1776,11 +1831,15 @@ def run_all(cfg: ExperimentConfig) -> Dict:
                     "reporting_phase_s": t_report_end - t_report_start}
 
     validation = validate_outputs(out, benchmarks, correctness, cfg)
-
     write_experiment_summary_md(benchmarks, scaling_results, overhead, sysinfo,
                                  validation, correctness, timing_meta, out)
     write_experiment_paper_section_md(overhead, scaling_results, benchmarks, sysinfo, out)
     write_reviewer_response_notes_md(out)
+    # Re-validate now that all three Markdown files exist, then rewrite the
+    # summary once so it records the true final validation result.
+    validation = validate_outputs(out, benchmarks, correctness, cfg)
+    write_experiment_summary_md(benchmarks, scaling_results, overhead, sysinfo,
+                                 validation, correctness, timing_meta, out)
 
     results_json["timing_meta"]["reporting_phase_s"] = timing_meta["reporting_phase_s"]
     results_json["validation"] = validation
@@ -1800,9 +1859,11 @@ if __name__ == "__main__":
     parser.add_argument("--safety-fraction", type=float, default=0.5)
     parser.add_argument("--timeout-seconds", type=float, default=180.0)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--timing-only", action="store_true")
     args = parser.parse_args()
 
     timeout = None if args.timeout_seconds == 0 else args.timeout_seconds
+    
     cfg = ExperimentConfig(output_dir=args.output_dir, quick=args.quick,
                             safety_fraction=args.safety_fraction,
                             timeout_seconds=timeout, seed=args.seed)

@@ -1,0 +1,9 @@
+component,category,block_size,extra_param,status,throughput_Mbits_per_s
+toeplitz_extract_fft,extraction_fft,10000,"{""n_gen"": 10000, ""output_length"": 5000}",ok,2.3585
+toeplitz_extract_fft,extraction_fft,100000,"{""n_gen"": 100000, ""output_length"": 50000}",ok,1.4967
+toeplitz_extract_fft,extraction_fft,1000000,"{""n_gen"": 1000000, ""output_length"": 500000}",ok,1.2174
+toeplitz_extract_fft,extraction_fft,1620000,"{""n_gen"": 1620000, ""output_length"": 1600000}",ok,1.8656
+toeplitz_extract_fft,extraction_fft,5000000,"{""n_gen"": 5000000, ""output_length"": 2000000}",ok,1.1135
+toeplitz_extract_fft,extraction_fft,10000000,"{""n_gen"": 10000000, ""output_length"": 4000000}",ok,1.3424
+generate_certified_random_bits,full_generation,100000,"{""n_bits_requested"": 100000, ""output_length_mean_actual"": 100000, ""output_length_samples_used"": 3}",ok,0.4137
+generate_certified_random_bits,full_generation,1000000,"{""n_bits_requested"": 1000000, ""output_length_mean_actual"": 1000000, ""output_length_samples_used"": 2}",ok,0.1986
