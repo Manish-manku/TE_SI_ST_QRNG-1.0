@@ -703,9 +703,12 @@ class RandomnessExtractor:
     def _get_fft_workspace(self, circ_size: int) -> Dict[str, np.ndarray]:
         ws = self._fft_workspace.get(circ_size)
         if ws is None:
+            # float64 is required: NumPy >= 2 transforms float32 input in single
+            # precision, and for long, dense inputs the rounding error exceeds 0.5,
+            # corrupting the parity (mod 2) of the Toeplitz product.
             ws = {
-                "circ_col": np.zeros(circ_size, dtype=np.float32),
-                "x_pad": np.zeros(circ_size, dtype=np.float32),
+                "circ_col": np.zeros(circ_size, dtype=np.float64),
+                "x_pad": np.zeros(circ_size, dtype=np.float64),
             }
             self._fft_workspace[circ_size] = ws
         return ws

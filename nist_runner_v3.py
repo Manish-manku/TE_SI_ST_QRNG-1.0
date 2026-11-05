@@ -347,10 +347,11 @@ class NISTTestRunner:
 
     def _random_excursions(self, bits: np.ndarray) -> Optional[float]:
         x = 2 * bits.astype(np.int8) - 1
-        s = np.concatenate([[0], np.cumsum(x), [0]])
+        s = np.concatenate([[0], np.cumsum(x, dtype=np.int64), [0]])
         cyc_idx = np.where(s == 0)[0]
         j = len(cyc_idx) - 1
-        if j < 1:
+        # SP 800-22 §2.14: the test is not applicable with fewer than 500 cycles
+        if j < 500:
             return None
         states = [-4, -3, -2, -1, 1, 2, 3, 4]
         pvals = []
@@ -360,7 +361,12 @@ class NISTTestRunner:
                 cycle = s[cyc_idx[k]:cyc_idx[k + 1] + 1]
                 visits.append(np.sum(cycle == st))
             visits = np.asarray(visits)
-            pi = np.array([0.5, 0.25, 0.125, 0.0625, 0.0312, 0.0313])
+            # State-dependent probabilities pi_k(x) of exactly k visits (k >= 5 pooled),
+            # SP 800-22 §3.14; a single table for all states is only valid for |x| = 1.
+            a = 1.0 - 1.0 / (2.0 * abs(st))
+            pi = np.array([a]
+                          + [(1.0 / (4.0 * st * st)) * a ** (k - 1) for k in range(1, 5)]
+                          + [(1.0 / (2.0 * abs(st))) * a ** 4])
             v = np.array([np.sum(visits == u) for u in range(5)] + [np.sum(visits >= 5)])
             expv = j * pi
             chi2 = np.sum((v - expv) ** 2 / np.maximum(expv, 1e-12))
@@ -369,9 +375,10 @@ class NISTTestRunner:
 
     def _random_excursions_variant(self, bits: np.ndarray) -> Optional[float]:
         x = 2 * bits.astype(np.int8) - 1
-        s = np.concatenate([[0], np.cumsum(x), [0]])
+        s = np.concatenate([[0], np.cumsum(x, dtype=np.int64), [0]])
         j = np.sum(s == 0) - 1
-        if j <= 0:
+        # SP 800-22 §2.15: the test is not applicable with fewer than 500 cycles
+        if j < 500:
             return None
         pvals = []
         for st in list(range(-9, 0)) + list(range(1, 10)):
